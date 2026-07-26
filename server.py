@@ -28,10 +28,12 @@ GET /api/ara?q=sise                     sembol arama (bağlam kaydından)
 POST /api/tarama/baslat                 arka planda evren taraması başlat (gövdede {"evren": "bist"})
 GET /api/tarama/durum                   çalışan taramanın ilerlemesi
 GET /api/sozluk                         terim sözlüğü (arayüz balonları için)
+GET /api/llm-rapor?sembol=SISE.IS       LLM-okunur Markdown rapor (admin anahtarı ayarlıysa korumalı)
 """
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import sys
@@ -49,6 +51,7 @@ from core import flags as FL                 # noqa: E402
 from core import fundamentals as F           # noqa: E402
 from core import health as H                 # noqa: E402
 from core import inflation as INF            # noqa: E402
+from core import llm_rapor as LLM            # noqa: E402
 from core import market as M                 # noqa: E402
 from core import narrative as N              # noqa: E402
 from core import portfolio as PF             # noqa: E402
@@ -79,6 +82,45 @@ class ApiError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+class MetinYanit:
+    """Bir uç işleyicinin JSON değil düz metin döndürdüğünü işaretler.
+
+    `_api()` bunu `isinstance` ile tanıyıp `_metin()`e dallanır; her hata
+    yolu (ApiError, YahooError, beklenmeyen istisna) yine JSON kalır — yalnızca
+    başarılı yanıt gövdesi metin olur.
+    """
+
+    def __init__(self, metin: str, tur: str = "text/markdown; charset=utf-8") -> None:
+        self.metin = metin
+        self.tur = tur
+
+
+def admin_anahtari() -> str | None:
+    """config.json'daki 'admin_anahtari'; boşsa None (bkz. INF.evds_key aynı örüntü)."""
+    key = (INF.load_config().get("admin_anahtari") or "").strip()
+    return key or None
+
+
+def admin_dogrula(headers) -> None:
+    """Anahtar yapılandırılmamışsa geçer (yerel tek kullanıcı = admin).
+
+    Yapılandırılmışsa `X-Admin-Anahtar` başlığı `hmac.compare_digest` ile
+    karşılaştırılır — zamanlama saldırılarına karşı `==`'den daha güvenli,
+    burada asıl değeri olan şey modülerlik: ileride panel çok kullanıcılı bir
+    uygulamaya dönüşürse tek yapılacak şey anahtarı doldurmak.
+    """
+    yapilandirilan = admin_anahtari()
+    if yapilandirilan is None:
+        return
+    verilen = headers.get("X-Admin-Anahtar") or ""
+    if not hmac.compare_digest(verilen, yapilandirilan):
+        raise ApiError("admin anahtarı eksik veya yanlış", status=403)
+
+
+# Anahtar yapılandırıldığında admin_dogrula'dan geçmesi gereken uçlar.
+KORUNAN_UCLAR = {"/api/llm-rapor"}
 
 
 class TaramaYoneticisi:
@@ -206,6 +248,12 @@ def uc_durum(params: dict) -> dict:
 def uc_sozluk(params: dict) -> dict:
     """Terim sözlüğü — arayüz balonları bu ucu bir kez çekip önbellekler."""
     return {"uyari": UYARI, "terimler": SOZLUK}
+
+
+def uc_llm_rapor(params: dict) -> MetinYanit:
+    """Bir LLM'in arayüzü scrape etmeden okuyabileceği tek-şirket Markdown raporu."""
+    symbol = _sembol(params)
+    return MetinYanit(LLM.olustur(_client, symbol))
 
 
 def uc_tarama_baslat(params: dict, body: dict | None = None) -> dict:
@@ -444,6 +492,7 @@ GET_UCLARI = {
     "/api/ara": uc_ara,
     "/api/tarama/durum": uc_tarama_durum,
     "/api/sozluk": uc_sozluk,
+    "/api/llm-rapor": uc_llm_rapor,
 }
 
 POST_UCLARI = {
@@ -503,11 +552,14 @@ class Handler(SimpleHTTPRequestHandler):
         self._api(parsed.path, urllib.parse.parse_qs(parsed.query), POST_UCLARI, body)
 
     def _api(self, path: str, params: dict, tablo: dict, body: dict | None = None) -> None:
-        handler = tablo.get(path.rstrip("/"))
+        yol = path.rstrip("/")
+        handler = tablo.get(yol)
         if handler is None:
             self._json({"hata": f"bilinmeyen uç: {path}"}, status=404)
             return
         try:
+            if yol in KORUNAN_UCLAR:
+                admin_dogrula(self.headers)
             # YahooClient çerez ve crumb durumunu paylaştığı için tek seferde
             # bir istek işlenir; panel tek kullanıcılı, bu yeterli.
             with _kilit:
@@ -530,12 +582,24 @@ class Handler(SimpleHTTPRequestHandler):
             traceback.print_exc()
             self._json({"hata": f"{type(error).__name__}: {error}"}, status=500)
         else:
-            self._json(sonuc)
+            if isinstance(sonuc, MetinYanit):
+                self._metin(sonuc)
+            else:
+                self._json(sonuc)
 
     def _json(self, payload, status: int = 200) -> None:
         raw = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(raw)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(raw)
+
+    def _metin(self, yanit: MetinYanit, status: int = 200) -> None:
+        raw = yanit.metin.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", yanit.tur)
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
         self.end_headers()

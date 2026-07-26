@@ -23,8 +23,8 @@ KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOSYALAR = (
     "core/narrative.py", "core/flags.py", "core/reports.py",
     "core/health.py", "core/risk.py", "core/market.py",
-    "core/sozluk.py",
-    "tools/rapor.py", "tools/filtre.py",
+    "core/sozluk.py", "core/llm_rapor.py",
+    "tools/rapor.py", "tools/filtre.py", "tools/llm_rapor.py",
 )
 
 # Python'ın kendi sayı biçimi: isteğe bağlı işaret/ayraç + nokta + basamak

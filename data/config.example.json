@@ -12,5 +12,14 @@
 
   "_us_cpi": "ABD CPI verisi BLS'in acik ucundan aliniyor, anahtar gerekmiyor.",
 
+  "admin_anahtari": "",
+  "_admin_anahtari": [
+    "Bos birakilirsa /api/llm-rapor ucu herhangi bir baslik istemeden acik kalir",
+    "(yerel, tek kullanicili kullanim icin yeterli — sen zaten admin'sin).",
+    "Bir deger yazilirsa ayni uc yalnizca 'X-Admin-Anahtar: <deger>' basligi",
+    "gonderen isteklere yanit verir; digerleri 403 alir. Panel ileride internete",
+    "acilirsa tek yapilmasi gereken bu alani doldurmak."
+  ],
+
   "_kurulum": "Bu dosyayi 'config.json' olarak kopyalayip evds_api_key'i doldurun. config.json .gitignore'da — commit edilmez."
 }

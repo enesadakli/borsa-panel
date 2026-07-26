@@ -17,7 +17,8 @@ KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, KOK)
 
 MODULLER = ("test_dil", "test_fskor", "test_reel", "test_portfoy", "test_tarayici",
-            "test_anlati", "test_tazelik", "test_bicim_lint", "test_sozluk")
+            "test_anlati", "test_tazelik", "test_bicim_lint", "test_sozluk",
+            "test_llm_rapor")
 
 
 def main(argv: list[str]) -> int:
