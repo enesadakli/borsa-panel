@@ -109,6 +109,22 @@ header {
 
 .tazelik { font-size: 12px; color: var(--sonuk); font-variant-numeric: tabular-nums; }
 
+.baglanti-dugme {
+  border: none; background: none; color: var(--vurgu); font: inherit; font-size: inherit;
+  cursor: pointer; padding: 0; text-decoration: underline; text-underline-offset: 2px;
+}
+.baglanti-dugme:hover { color: var(--metin); }
+
+.tarama-durumu {
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--sonuk);
+  font-variant-numeric: tabular-nums;
+}
+.tarama-bar {
+  width: 72px; height: 6px; border-radius: 3px; background: var(--cizgi);
+  overflow: hidden; display: inline-block;
+}
+.tarama-bar i { display: block; height: 100%; width: 0%; background: var(--vurgu); transition: width 0.4s; }
+
 /* arama */
 .arama { position: relative; margin-left: auto; }
 

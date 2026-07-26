@@ -188,6 +188,9 @@ function sutunGrafik(noktalar, birim, genislik = 700) {
 
 let DURUM = null;
 
+// Veri bu kadar saatten eskiyse üst bar "Güncelle" bağlantısı gösterir (7 gün).
+const TARAMA_GUNCEL_SINIRI_SAAT = 7 * 24;
+
 async function durumuYukle() {
   try {
     DURUM = await API.al("/api/durum");
@@ -196,13 +199,96 @@ async function durumuYukle() {
     return;
   }
   const parcalar = DURUM.evrenler.map((e) => {
-    if (e.tarama_gerekli) return `${e.label}: taranmadı`;
+    if (e.tarama_gerekli) {
+      return `${kacir(e.label)}: taranmadı ·
+        <button type="button" class="baglanti-dugme" data-tarama-baslat-durum="${kacir(e.id)}"
+          >şimdi tara</button>`;
+    }
     const yas = e.tarama_yasi_saat;
     const ek = yas === null || yas === undefined ? "" : yas < 1 ? " · yeni" : ` · ${Math.round(yas)} sa`;
-    return `${e.label} ${e.taranan}${ek}`;
+    const eski = !e.tarama_calisiyor && yas !== null && yas !== undefined && yas > TARAMA_GUNCEL_SINIRI_SAAT;
+    const guncelle = eski
+      ? ` · <button type="button" class="baglanti-dugme" data-tarama-baslat-durum="${kacir(e.id)}"
+          >Güncelle</button>`
+      : "";
+    return `${kacir(e.label)} ${e.taranan}${kacir(ek)}${guncelle}`;
   });
   if (!DURUM.evds_anahtari_var) parcalar.push("EVDS anahtarı yok");
-  document.getElementById("tazelik").textContent = parcalar.join("   ·   ");
+  document.getElementById("tazelik").innerHTML = parcalar.join("   ·   ");
+
+  // Sayfa yeniden açıldığında (ya da başka bir sekmeden) zaten sürmekte olan
+  // bir tarama varsa ilerleme çubuğunu sessizce devam ettir — kullanıcı
+  // düğmeye tekrar basmak zorunda kalmasın.
+  const suren = DURUM.evrenler.find((e) => e.tarama_calisiyor);
+  if (suren) taramaTakipEt(suren.id);
+}
+
+/* ═══════════════════════════════════════════════════════════ panel taraması
+ *
+ * Tarama ~15-17 dakika sürüyor; sunucu tarafı kendi YahooClient'ıyla arka
+ * planda çalışıyor (bkz. server.py TaramaYoneticisi — global kilidi tutmuyor,
+ * bu yüzden tarama sürerken diğer ekranlar donmuyor). Burada yapılan tek şey
+ * ilerlemeyi 2 saniyede bir yoklamak; ilerleme durumu üst bardaki tek bir
+ * göstergede toplanıyor ki hangi ekranda olursa olsun görünsün.
+ */
+
+let TARAMA_YOKLAMA_ZAMANLAYICI = null;
+
+async function taramaBaslat(evren) {
+  const kapsayici = document.getElementById("tarama-durumu");
+  const metin = document.getElementById("tarama-metin");
+  kapsayici.hidden = false;
+  metin.textContent = `${evren}: başlatılıyor…`;
+  try {
+    const yanit = await fetch("/api/tarama/baslat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ evren }),
+    });
+    const govde = await yanit.json().catch(() => ({}));
+    if (!yanit.ok) throw new Error(govde.hata || `HTTP ${yanit.status}`);
+  } catch (hata) {
+    metin.textContent = `${evren}: başlatılamadı — ${hata.message}`;
+    setTimeout(() => { kapsayici.hidden = true; }, 6000);
+    return;
+  }
+  taramaTakipEt(evren);
+}
+
+function taramaTakipEt(evren) {
+  clearTimeout(TARAMA_YOKLAMA_ZAMANLAYICI);
+  const kapsayici = document.getElementById("tarama-durumu");
+  const metin = document.getElementById("tarama-metin");
+  const bar = document.getElementById("tarama-bar-ic");
+  kapsayici.hidden = false;
+
+  const adim = async () => {
+    let durum;
+    try {
+      durum = await API.al("/api/tarama/durum");
+    } catch (hata) {
+      metin.textContent = `${evren}: durum alınamadı, tekrar deneniyor…`;
+      TARAMA_YOKLAMA_ZAMANLAYICI = setTimeout(adim, 4000);
+      return;
+    }
+    if (durum.calisiyor) {
+      const oran = durum.toplam ? Math.round((durum.index / durum.toplam) * 100) : 0;
+      metin.textContent = `${kacir(durum.evren || evren)}: ${durum.index}/${durum.toplam}` +
+        (durum.son_sembol ? ` · ${kacir(durum.son_sembol)}` : "");
+      bar.style.width = `${oran}%`;
+      TARAMA_YOKLAMA_ZAMANLAYICI = setTimeout(adim, 2000);
+    } else if (durum.hata) {
+      metin.textContent = `${evren}: tarama hata ile bitti — ${durum.hata}`;
+      bar.style.width = "0%";
+      setTimeout(() => { kapsayici.hidden = true; }, 8000);
+    } else {
+      metin.textContent = `${evren}: tarama tamamlandı`;
+      bar.style.width = "100%";
+      durumuYukle().then(() => yonlendir());
+      setTimeout(() => { kapsayici.hidden = true; }, 5000);
+    }
+  };
+  adim();
 }
 
 /* ═══════════════════════════════════════════════════════════════ arama */
@@ -278,11 +364,15 @@ function hashCoz() {
   return { ekran: p[0] || "skor", sembol: p[1] ? decodeURIComponent(p[1]) : null };
 }
 
-function durumKarti(baslik, aciklama, komut, hatali = false) {
+function durumKarti(baslik, aciklama, komut, hatali = false, taramaEvreni = null) {
   return `<section><div class="durum${hatali ? " hatali" : ""}">
       <h3>${kacir(baslik)}</h3>
       <p>${kacir(aciklama)}</p>
       ${komut ? `<code>${kacir(komut)}</code>` : ""}
+      ${taramaEvreni ? `<div style="margin-top:14px">
+          <button type="button" class="dugme" data-tarama-baslat="${kacir(taramaEvreni)}"
+            >Taramayı panelden başlat</button>
+        </div>` : ""}
     </div></section>`;
 }
 
@@ -309,11 +399,17 @@ async function yonlendir() {
   try {
     await cizici(kap, sembol);
   } catch (hata) {
+    // 409 yalnızca bağlam taraması gerektiren ekranlarda (piyasa, tarayıcı)
+    // oluşur; ikisi de kendi evren seçimini ayrı bir durum değişkeninde tutuyor
+    // (PIYASA_EVREN / TARAYICI.evren) — hangi ekranda olduğumuza göre doğru
+    // evreni seçiyoruz. Önceden ikisi de her zaman "bist" yazıyordu.
+    const evrenIcin = ekran === "piyasa" ? PIYASA_EVREN : ekran === "tarayici" ? TARAYICI.evren : null;
     kap.innerHTML = durumKarti(
       "Veri alınamadı",
       hata.message,
-      hata.durum === 409 ? `python tools/tarama.py ${hashCoz().ekran === "piyasa" ? "bist" : "bist"}` : null,
+      hata.durum === 409 && evrenIcin ? `python tools/tarama.py ${evrenIcin}` : null,
       true,
+      hata.durum === 409 ? evrenIcin : null,
     );
   }
 }
@@ -1334,7 +1430,8 @@ async function calistir(kap, yol, govde) {
   } catch (hata) {
     hedef.innerHTML = durumKarti(
       "Tarama yapılamadı", hata.message,
-      hata.durum === 409 ? `python tools/tarama.py ${TARAYICI.evren}` : null, true);
+      hata.durum === 409 ? `python tools/tarama.py ${TARAYICI.evren}` : null, true,
+      hata.durum === 409 ? TARAYICI.evren : null);
   }
 }
 
@@ -1691,7 +1788,7 @@ EKRANLAR.piyasa = async function (kap) {
     d = await API.al(`/api/piyasa?evren=${PIYASA_EVREN}`);
   } catch (hata) {
     kap.innerHTML = secici + durumKarti("Piyasa bakışı için tarama gerekli", hata.message,
-      `python tools/tarama.py ${PIYASA_EVREN}`, true);
+      `python tools/tarama.py ${PIYASA_EVREN}`, true, PIYASA_EVREN);
     kap.querySelectorAll("button[data-evren]").forEach((b) =>
       b.addEventListener("click", () => { PIYASA_EVREN = b.dataset.evren; yonlendir(); }));
     return;
@@ -1816,6 +1913,22 @@ document.getElementById("ekran").addEventListener("click", (olay) => {
   if (ornek) git("skor", ornek.dataset.ornek);
   const cift = olay.target.closest("button[data-ornek-cift]");
   if (cift) git("karsilastir", cift.dataset.ornekCift);
+  const taramaDugmesi = olay.target.closest("button[data-tarama-baslat]");
+  if (taramaDugmesi) {
+    taramaDugmesi.disabled = true;
+    taramaDugmesi.textContent = "Başlatılıyor…";
+    taramaBaslat(taramaDugmesi.dataset.taramaBaslat);
+  }
+});
+
+// Üst bardaki "Güncelle" / "şimdi tara" bağlantısı — header sekme değişince
+// yeniden çizilmediği için ayrı bir delegasyon gerekiyor.
+document.querySelector("header").addEventListener("click", (olay) => {
+  const dugme = olay.target.closest("button[data-tarama-baslat-durum]");
+  if (dugme) {
+    dugme.disabled = true;
+    taramaBaslat(dugme.dataset.taramaBaslatDurum);
+  }
 });
 
 window.addEventListener("hashchange", yonlendir);
