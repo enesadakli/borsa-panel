@@ -259,6 +259,39 @@ section { margin-top: 22px; }
 .iki { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 860px) { .iki { grid-template-columns: 1fr; } }
 
+/* ═══════════════════════════════════════════════════════ terim balonları */
+
+/* Alt çizgi yalnızca sözlük gerçekten yüklendiyse görünür — fetch düşerse
+   etiketler sıradan metin gibi kalır, yarım bir özellik sızmaz. */
+body.sozluk-hazir .terim {
+  text-decoration: underline dotted var(--cok-sonuk);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+#terim-balon {
+  position: fixed;
+  z-index: 80; /* oneriler 50 ve header 40 üzerinde */
+  max-width: 300px;
+  background: var(--kart);
+  border: 1px solid var(--cizgi);
+  border-radius: var(--yuvarlak-kucuk);
+  box-shadow: var(--golge);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+#terim-balon b { display: block; margin-bottom: 3px; }
+
+/* Tarayıcı kural satırındaki alan seçicisinin yanına konan yuvarlak "?" —
+   select kutusu doğrudan tooltip taşıyamadığı için ayrı bir işaretçi. */
+.kosul-terim .terim {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--cizgi);
+  color: var(--sonuk); font-size: 11px; text-decoration: none;
+}
+
 /* ═══════════════════════════════════════════════════════════ karşılaştır */
 
 .kars-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }

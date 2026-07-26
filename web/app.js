@@ -98,6 +98,102 @@ const yonSinifi = (yon) =>
 const isaretRengi = (deger) =>
   deger === null || deger === undefined ? "" : deger > 0 ? "yesil" : deger < 0 ? "kirmizi" : "";
 
+/* ═══════════════════════════════════════════════════════ terim sözlüğü */
+
+/* Aşamalı iyileştirme: sözlük /api/sozluk'tan bir kez çekilir; gelmezse
+ * hiçbir şey bozulmaz, etiketler düz metin kalır. Balon tek ve document.body
+ * üzerindedir — #ekran innerHTML ile yeniden çizilse de yaşar. */
+
+let SOZLUK = null;
+
+async function sozlukYukle() {
+  try {
+    const veri = await API.al("/api/sozluk");
+    SOZLUK = veri.terimler || null;
+    if (SOZLUK) document.body.classList.add("sozluk-hazir");
+  } catch {
+    /* sözlük süsleme katmanıdır; hata sessizce yutulur */
+  }
+}
+
+/** Etiketi, sözlükte karşılığı varsa balonlu bir span'e sarar. */
+function terim(anahtar, etiket) {
+  if (!SOZLUK || !SOZLUK[anahtar]) return kacir(etiket);
+  return `<span class="terim" data-terim="${kacir(anahtar)}" tabindex="0">${kacir(etiket)}</span>`;
+}
+
+function terimBalonuKur() {
+  const balon = document.createElement("div");
+  balon.id = "terim-balon";
+  balon.setAttribute("role", "tooltip");
+  balon.hidden = true;
+  document.body.appendChild(balon);
+
+  let acikHedef = null;      // balonu açık tutan .terim öğesi
+  let sabitlendi = false;    // tıklama/dokunmayla mı açıldı (hover'dan farklı)
+
+  const kapat = () => {
+    if (!acikHedef) return;
+    acikHedef.removeAttribute("aria-describedby");
+    acikHedef = null;
+    sabitlendi = false;
+    balon.hidden = true;
+  };
+
+  const ac = (hedef, sabit) => {
+    const giris = SOZLUK && SOZLUK[hedef.dataset.terim];
+    if (!giris) return;
+    kapat();
+    balon.textContent = "";
+    const bas = document.createElement("b");
+    bas.textContent = giris.ad;
+    balon.appendChild(bas);
+    balon.appendChild(document.createTextNode(giris.aciklama));
+    balon.hidden = false;
+
+    // Önce görünür yap ki ölçüsü alınabilsin, sonra konumlandır.
+    const kutu = hedef.getBoundingClientRect();
+    const b = balon.getBoundingClientRect();
+    let ust = kutu.bottom + 8;
+    if (ust + b.height > window.innerHeight - 8) ust = kutu.top - b.height - 8;
+    let sol = Math.min(Math.max(8, kutu.left), window.innerWidth - b.width - 8);
+    balon.style.top = `${Math.max(8, ust)}px`;
+    balon.style.left = `${sol}px`;
+
+    hedef.setAttribute("aria-describedby", "terim-balon");
+    acikHedef = hedef;
+    sabitlendi = Boolean(sabit);
+  };
+
+  document.addEventListener("mouseover", (olay) => {
+    const hedef = olay.target.closest(".terim");
+    if (hedef && hedef !== acikHedef) ac(hedef, false);
+  });
+  document.addEventListener("mouseout", (olay) => {
+    if (sabitlendi) return;
+    const hedef = olay.target.closest(".terim");
+    if (hedef && hedef === acikHedef && !hedef.contains(olay.relatedTarget)) kapat();
+  });
+  document.addEventListener("focusin", (olay) => {
+    const hedef = olay.target.closest(".terim");
+    if (hedef) ac(hedef, false);
+  });
+  document.addEventListener("focusout", (olay) => {
+    if (!sabitlendi && olay.target.closest(".terim")) kapat();
+  });
+  document.addEventListener("click", (olay) => {
+    const hedef = olay.target.closest(".terim");
+    if (!hedef) { kapat(); return; }        // dışarı tıklama kapatır
+    if (hedef === acikHedef && sabitlendi) kapat();  // yeniden dokunma kapatır
+    else ac(hedef, true);                    // dokunma açar ve sabitler (mobil)
+  });
+  document.addEventListener("keydown", (olay) => {
+    if (olay.key === "Escape") kapat();
+  });
+  document.addEventListener("scroll", kapat, { passive: true });
+  window.addEventListener("hashchange", kapat);
+}
+
 /* ═══════════════════════════════════════════════════════════════ SVG */
 
 /** Çok şeritli zaman serisi grafiği.
@@ -472,7 +568,7 @@ function sirketBasligi(veri) {
   } else if (veri.ozet.as_of) {
     rozetler.push(`<span class="rozet">Dönem ${kacir(veri.ozet.as_of)}</span>`);
   }
-  if (veri.banka_muhasebesi) rozetler.push(`<span class="rozet rozet-uyari">Banka muhasebesi</span>`);
+  if (veri.banka_muhasebesi) rozetler.push(`<span class="rozet rozet-uyari">${terim("banka_muhasebesi", "Banka muhasebesi")}</span>`);
   if (p.tablo_para && p.fiyat_para && p.tablo_para !== p.fiyat_para) {
     rozetler.push(`<span class="rozet rozet-uyari">Tablo ${kacir(p.tablo_para)} / fiyat ${kacir(p.fiyat_para)}</span>`);
   }
@@ -524,25 +620,26 @@ function istatistikSeridi(veri) {
 
   const kartlar = [];
 
-  for (const [anahtar, etiketReel, etiketNominal] of [
-    ["revenue", "Gelir · reel", "Gelir · nominal"],
-    ["net_income", "Net kâr · reel", "Net kâr · nominal"],
+  for (const [anahtar, etiketReel] of [
+    ["revenue", "Gelir · reel"],
+    ["net_income", "Net kâr · reel"],
   ]) {
     const d = rg[anahtar];
     if (!d) continue;
+    const [govde, tur] = etiketReel.split(" · ");  // "Gelir · reel" -> ["Gelir", "reel"]
     if (d.real === null || d.real === undefined) {
       kartlar.push(`<div class="serit-kart">
-          <div class="serit-etiket">${etiketNominal}</div>
+          <div class="serit-etiket">${kacir(govde)} · ${terim("nominal", "nominal")}</div>
           <div class="serit-deger buyuk ${isaretRengi(d.nominal)}">${kacir(yuzde(d.nominal))}</div>
           <div class="serit-alt">reel karşılığı hesaplanamadı</div>
           <div class="serit-kaynak">${kacir(d.detail || "Dönemi kapsayan TÜFE verisi yok")}</div>
         </div>`);
     } else {
       kartlar.push(`<div class="serit-kart">
-          <div class="serit-etiket">${etiketReel}</div>
+          <div class="serit-etiket">${kacir(govde)} · ${terim("reel", tur)}</div>
           <div class="serit-deger buyuk ${isaretRengi(d.real)}">${kacir(yuzde(d.real))}</div>
-          <div class="serit-alt">nominal ${kacir(yuzde(d.nominal))} ·
-            enflasyon ${kacir(yuzde(d.cpi_growth, false))}</div>
+          <div class="serit-alt">${terim("nominal", "nominal")} ${kacir(yuzde(d.nominal))} ·
+            ${terim("tufe", "enflasyon")} ${kacir(yuzde(d.cpi_growth, false))}</div>
           <div class="serit-kaynak">${kacir(d.label || "")}</div>
         </div>`);
     }
@@ -551,7 +648,7 @@ function istatistikSeridi(veri) {
   const son = fscore.latest;
   if (son) {
     kartlar.push(`<div class="serit-kart">
-        <div class="serit-etiket">F-Skoru</div>
+        <div class="serit-etiket">${terim("fscore", "F-Skoru")}</div>
         <div class="serit-deger">${son.score} <span class="gri" style="font-size:16px">/ 9</span></div>
         <div class="serit-alt">${kacir(kiyas("fscore") || son.label)}</div>
       </div>`);
@@ -560,12 +657,12 @@ function istatistikSeridi(veri) {
   for (const [metrik, etiket, node] of [
     ["pe", "F/K", val.pe],
     ["pb", "PD/DD", val.pb],
-    ["net_debt_ebitda", "Net borç / FAVÖK", debt.net_debt_ebitda],
+    ["net_debt_ebitda", "Net borç/FAVÖK", debt.net_debt_ebitda],
   ]) {
     if (!node) continue;
     if (node.status !== "ok" || node.value === null || node.value === undefined) {
       kartlar.push(`<div class="serit-kart">
-          <div class="serit-etiket">${etiket}</div>
+          <div class="serit-etiket">${terim(metrik, etiket)}</div>
           <div class="serit-deger gri" style="font-size:20px">—</div>
           <div class="serit-alt">${kacir(node.detail || "hesaplanamadı")}</div>
         </div>`);
@@ -575,7 +672,7 @@ function istatistikSeridi(veri) {
     const ustunde = b && b.sector_median !== null && b.sector_median !== undefined
       && node.value > b.sector_median;
     kartlar.push(`<div class="serit-kart">
-        <div class="serit-etiket">${etiket}</div>
+        <div class="serit-etiket">${terim(metrik, etiket)}</div>
         <div class="serit-deger ${metrik === "net_debt_ebitda" && ustunde ? "kirmizi" : ""}"
           >${kacir(bicimle(metrik, node.value))}</div>
         <div class="serit-alt">${kacir(kiyas(metrik) || node.basis || "")}</div>
@@ -694,7 +791,7 @@ function fskorPaneli(veri) {
             const [sinif, im] = (isaretler[k.status] || isaretler.eksik_veri)(k);
             return `<div class="kriter">
                 <span class="isaret ${sinif}">${im}</span>
-                <span>${kacir(k.label)}</span>
+                <span>${terim(k.id, k.label)}</span>
                 <span class="detay">${kacir(k.detail || "")}</span>
               </div>`;
           }).join("") : ""}
@@ -706,6 +803,21 @@ function fskorPaneli(veri) {
     </div>
   </div>`;
 }
+
+/* Çeyreklik kalem anahtarı -> sözlük terimi. Sözlükte karşılığı olmayan
+ * kalemler (Gelir, Net kâr, Toplam borç) düz etikete düşer. */
+const KALEM_TERIM = {
+  GrossProfit: "brut_kar",
+  OperatingIncome: "faaliyet_kari",
+  EBITDA: "favok",
+  OperatingCashFlow: "faaliyet_nakit_akisi",
+  FreeCashFlow: "serbest_nakit_akisi",
+  NetDebt: "net_borc",
+  StockholdersEquity: "ozsermaye",
+};
+
+const kalemEtiketi = (s) =>
+  KALEM_TERIM[s.key] ? terim(KALEM_TERIM[s.key], s.label) : kacir(s.label);
 
 function ceyrekPaneli(rapor) {
   if (!rapor) return "";
@@ -726,7 +838,7 @@ function ceyrekPaneli(rapor) {
       <table>
         <thead><tr><th class="metin">Kalem</th><th>Tutar</th><th>Yıllık</th></tr></thead>
         <tbody>${c.lines.slice(0, 7).map((s) => `<tr>
-            <td class="metin">${kacir(s.label)}</td>
+            <td class="metin">${kalemEtiketi(s)}</td>
             <td>${kacir(para(s.value, rapor.currency || ""))}</td>
             <td>${degisim(s.yoy)}</td>
           </tr>`).join("")}</tbody>
@@ -753,7 +865,7 @@ function metrikPaneli(veri) {
 
   const satirlar = veri.baglam.map((item) => {
     if (item.not_applicable) {
-      return `<tr><td class="metin">${kacir(item.label)}</td>
+      return `<tr><td class="metin">${terim(item.metric, item.label)}</td>
         <td colspan="6" class="na" style="text-align:left">bu sektörde tanımsız</td></tr>`;
     }
     if (!item.available) return "";
@@ -761,7 +873,7 @@ function metrikPaneli(veri) {
     const sp = item.sector_percentile, up = item.universe_percentile;
     const tavanli = item.metric === "altman_z" && item.value > ALTMAN_TAVAN;
     return `<tr>
-        <td class="metin">${kacir(item.label)}</td>
+        <td class="metin">${terim(item.metric, item.label)}</td>
         <td${tavanli ? ` title="tam değer: ${kacir(TR(item.value, 2))}"` : ""}
           >${kacir(bicimle(item.metric, item.value))}</td>
         <td>${yon ? `<span class="etiket ${yonSinifi(yon)}">${kacir(yon)}</span>`
@@ -786,7 +898,9 @@ function metrikPaneli(veri) {
         <table>
           <thead><tr>
             <th class="metin">Metrik</th><th>Değer</th><th>Kendi trendi</th>
-            <th>Sektör medyanı</th><th>Konum</th><th>Sektör %</th><th>Evren %</th>
+            <th>${terim("sektor_medyani", "Sektör medyanı")}</th><th>Konum</th>
+            <th>${terim("yuzdelik_dilim", "Sektör %")}</th>
+            <th>${terim("yuzdelik_dilim", "Evren %")}</th>
           </tr></thead>
           <tbody>${satirlar}</tbody>
         </table>
@@ -1039,7 +1153,7 @@ function karsMetrikTablosu(basarili) {
         return `<td class="deger">${kacir(bicimle(metrik, item.value))}
           ${sp === null || sp === undefined ? "" : `<span class="alt-not">sektör %${Math.round(sp)}</span>`}</td>`;
       });
-      return `<tr><td class="metin">${kacir(etiketler.get(metrik))}</td>${hucreler.join("")}</tr>`;
+      return `<tr><td class="metin">${terim(metrik, etiketler.get(metrik))}</td>${hucreler.join("")}</tr>`;
     }).join("");
 
   if (!satirlar) return "";
@@ -1371,6 +1485,7 @@ function kosulSatiri(kosul, index) {
         ${(TARAYICI.alanlar || []).map((a) => `<option value="${kacir(a.field)}"
           ${a.field === kosul.field ? "selected" : ""}>${kacir(a.label)}</option>`).join("")}
       </select>
+      ${secili ? `<span class="kosul-terim">${terim(secili.field, "?")}</span>` : ""}
       <select data-parca="op">
         ${["&gt;", "&gt;=", "&lt;", "&lt;=", "==", "!="].map((o, i) => {
           const gercek = [">", ">=", "<", "<=", "==", "!="][i];
@@ -1689,17 +1804,17 @@ function riskPaneli(risk) {
           <div class="serit-kart"><div class="serit-etiket">İlk 3 pozisyon</div>
             <div class="serit-deger">${kacir(yuzde(k.top3_share, false))}</div>
             <div class="serit-alt">toplam ağırlık</div></div>
-          <div class="serit-kart"><div class="serit-etiket">Etkin pozisyon sayısı</div>
+          <div class="serit-kart"><div class="serit-etiket">${terim("etkin_pozisyon", "Etkin pozisyon sayısı")}</div>
             <div class="serit-deger">${kacir(TR(k.effective_positions, 1))}</div>
-            <div class="serit-alt">HHI ${kacir(TR(k.hhi, 3))}</div></div>
-          ${risk.volatility ? `<div class="serit-kart"><div class="serit-etiket">Yıllık volatilite</div>
+            <div class="serit-alt">${terim("hhi", "HHI")} ${kacir(TR(k.hhi, 3))}</div></div>
+          ${risk.volatility ? `<div class="serit-kart"><div class="serit-etiket">${terim("volatilite", "Yıllık volatilite")}</div>
             <div class="serit-deger">${kacir(yuzde(risk.volatility.annual, false))}</div>
             <div class="serit-alt">${risk.volatility.days} gün · kapsam
               ${kacir(yuzde(risk.volatility.coverage, false))}</div></div>` : ""}
-          ${risk.drawdown ? `<div class="serit-kart"><div class="serit-etiket">Tarihsel en kötü düşüş</div>
+          ${risk.drawdown ? `<div class="serit-kart"><div class="serit-etiket">${terim("en_kotu_dusus", "Tarihsel en kötü düşüş")}</div>
             <div class="serit-deger kirmizi">${kacir(yuzde(risk.drawdown.max_drawdown))}</div>
             <div class="serit-alt">${kacir(risk.drawdown.period || "")}</div></div>` : ""}
-          ${risk.beta ? `<div class="serit-kart"><div class="serit-etiket">Beta</div>
+          ${risk.beta ? `<div class="serit-kart"><div class="serit-etiket">${terim("beta", "Beta")}</div>
             <div class="serit-deger">${kacir(TR(risk.beta.value, 2))}</div>
             <div class="serit-alt">${kacir(risk.beta.index)}</div></div>` : ""}
         </div>
@@ -1711,7 +1826,7 @@ function riskPaneli(risk) {
         ${dagilim(risk.currencies, "currency")}
       </div>
       ${risk.correlation && risk.correlation.average !== undefined ? `<div class="panel-ic">
-          <p class="not"><b>Korelasyon:</b> ortalama ${kacir(TR(risk.correlation.average, 2))}
+          <p class="not"><b>${terim("korelasyon", "Korelasyon")}:</b> ortalama ${kacir(TR(risk.correlation.average, 2))}
             (${risk.correlation.days} gün). En yüksek
             ${kacir(risk.correlation.highest[0])}–${kacir(risk.correlation.highest[1])}
             ${kacir(TR(risk.correlation.highest[2], 2))}. Hisseler aynı yöne hareket ettikçe
@@ -1730,9 +1845,9 @@ function kalitePanel(kalite) {
       <div class="panel-bas">Kalite röntgeni <small>portföyün içeriği</small></div>
       <div class="panel-ic">
         <div class="serit" style="margin:0">
-          <div class="serit-kart"><div class="serit-etiket">Ağırlıklı F-Skoru</div>
+          <div class="serit-kart"><div class="serit-etiket">${terim("agirlikli_fskor", "Ağırlıklı F-Skoru")}</div>
             <div class="serit-deger buyuk">${kacir(TR(kalite.weighted_fscore, 2))}</div>
-            <div class="serit-alt">kapsam ${kacir(yuzde(kalite.coverage, false))}</div></div>
+            <div class="serit-alt">${terim("kapsam", "kapsam")} ${kacir(yuzde(kalite.coverage, false))}</div></div>
           <div class="serit-kart"><div class="serit-etiket">Kâr kalitesi zayıf</div>
             <div class="serit-deger">${kacir(yuzde(kalite.weak_cash_conversion_weight, false))}</div>
             <div class="serit-alt">portföy ağırlığı</div></div>
@@ -1752,7 +1867,7 @@ function kalitePanel(kalite) {
       </div>
       ${(kalite.sector_comparison || []).length ? `<div class="kaydir"><table>
           <thead><tr><th class="metin">Sektör</th><th>Portföy ağırlığı</th>
-            <th>Portföydeki medyan F-Skoru</th><th>Sektör medyanı</th></tr></thead>
+            <th>Portföydeki medyan F-Skoru</th><th>${terim("sektor_medyani", "Sektör medyanı")}</th></tr></thead>
           <tbody>${kalite.sector_comparison.map((s) => `<tr>
               <td class="metin">${kacir(s.sector)}</td>
               <td>${kacir(yuzde(s.weight, false))}</td>
@@ -1809,7 +1924,7 @@ EKRANLAR.piyasa = async function (kap) {
     <section>
       <div class="serit">
         ${d.headline.map((h) => `<div class="serit-kart">
-            <div class="serit-etiket">${kacir(h.label)}</div>
+            <div class="serit-etiket">${terim(h.key, h.label)}</div>
             <div class="serit-deger">${kacir(bicimliDeger(h))}</div>
             <div class="serit-alt">n=${h.n}${h.excludes_financials ? " · finans hariç" : ""}</div>
           </div>`).join("")}
@@ -1933,5 +2048,7 @@ document.querySelector("header").addEventListener("click", (olay) => {
 
 window.addEventListener("hashchange", yonlendir);
 
+terimBalonuKur();
+sozlukYukle().then(() => { if (SOZLUK) yonlendir(); });  // balonlar için tazele
 durumuYukle().then(yonlendir);
 aramayiKur();

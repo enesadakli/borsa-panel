@@ -222,10 +222,29 @@ def _fscore_at(rows: list[dict], index: int, bank: bool) -> dict:
     }
 
 
-def _criterion(id_, label, passed, status=OK, detail=None, sources=None) -> dict:
+# Kriter kimliği -> ekran etiketi, tek kaynak. Eskiden her kriterin etiketi
+# eksik/geçersiz/ok dallarında 2-3 kez tekrarlanıyordu; biri değişince
+# diğerleri sessizce geride kalabilirdi. Sözlük (core/sozluk.py) açıklamaları
+# da bu kimlikler üzerinden eşleşir.
+KRITERLER = (
+    ("ROA_POZITIF", "ROA pozitif"),
+    ("CFO_POZITIF", "Faaliyet nakit akışı pozitif"),
+    ("ROA_ARTIYOR", "ROA artıyor"),
+    ("NAKIT_KARDAN_BUYUK", "Nakit akışı net kârdan büyük"),
+    ("KALDIRAC_AZALIYOR", "Uzun vadeli borç yükü azalıyor"),
+    ("CARI_ORAN_ARTIYOR", "Cari oran artıyor"),
+    ("HISSE_IHRACI_YOK", "Yeni hisse ihracı yok"),
+    ("BRUT_MARJ_ARTIYOR", "Brüt marj artıyor"),
+    ("DEVIR_HIZI_ARTIYOR", "Varlık devir hızı artıyor"),
+)
+
+KRITER_ADLARI = dict(KRITERLER)
+
+
+def _criterion(id_, passed, status=OK, detail=None, sources=None) -> dict:
     return {
         "id": id_,
-        "label": label,
+        "label": KRITER_ADLARI[id_],
         "passed": passed,
         "status": status,
         "detail": detail,
@@ -244,10 +263,10 @@ def _c_roa(now, before, date, prev_date):
     assets = before.get("TotalAssets")  # Piotroski: dönem başı varlık
     roa = _ratio(ni, assets)
     if roa is None:
-        return _criterion("ROA_POZITIF", "ROA pozitif", None, EKSIK,
+        return _criterion("ROA_POZITIF", None, EKSIK,
                           "Net kâr veya dönem başı toplam varlık yok")
     return _criterion(
-        "ROA_POZITIF", "ROA pozitif", roa > 0, OK, f"ROA = {B.yuzde(roa, 2, False)}",
+        "ROA_POZITIF", roa > 0, OK, f"ROA = {B.yuzde(roa, 2, False)}",
         [source("NetIncome", date, ni), source("TotalAssets", prev_date, assets)],
     )
 
@@ -256,14 +275,14 @@ def _c_cfo(now, date, bank):
     if bank:
         # Banka faaliyet nakit akışı mevduat ve kredi hacmiyle savrulur;
         # işareti kârlılık hakkında bilgi taşımaz.
-        return _criterion("CFO_POZITIF", "Faaliyet nakit akışı pozitif", None, GECERSIZ,
+        return _criterion("CFO_POZITIF", None, GECERSIZ,
                           "Banka nakit akışı mevduat/kredi hareketiyle belirlenir")
     cfo = now.get("OperatingCashFlow")
     if cfo is None:
-        return _criterion("CFO_POZITIF", "Faaliyet nakit akışı pozitif", None, EKSIK,
+        return _criterion("CFO_POZITIF", None, EKSIK,
                           "Faaliyet nakit akışı yok")
     return _criterion(
-        "CFO_POZITIF", "Faaliyet nakit akışı pozitif", cfo > 0, OK,
+        "CFO_POZITIF", cfo > 0, OK,
         f"Faaliyet nakit akışı = {B.para(cfo)}",
         [source("OperatingCashFlow", date, cfo)],
     )
@@ -275,10 +294,10 @@ def _c_delta_roa(rows, index):
     roa_now = _ratio(now.get("NetIncome"), before.get("TotalAssets"))
     roa_before = _ratio(before.get("NetIncome"), older.get("TotalAssets")) if older else None
     if roa_now is None or roa_before is None:
-        return _criterion("ROA_ARTIYOR", "ROA artıyor", None, EKSIK,
+        return _criterion("ROA_ARTIYOR", None, EKSIK,
                           "İki yıllık ROA karşılaştırması için yeterli dönem yok")
     return _criterion(
-        "ROA_ARTIYOR", "ROA artıyor", roa_now > roa_before, OK,
+        "ROA_ARTIYOR", roa_now > roa_before, OK,
         f"ROA {B.yuzde(roa_before, 2, False)} → {B.yuzde(roa_now, 2, False)}",
         [source("NetIncome", rows[index]["date"], now.get("NetIncome")),
          source("NetIncome", rows[index - 1]["date"], before.get("NetIncome"))],
@@ -287,17 +306,17 @@ def _c_delta_roa(rows, index):
 
 def _c_accruals(now, before, date, prev_date, bank):
     if bank:
-        return _criterion("NAKIT_KARDAN_BUYUK", "Nakit akışı net kârdan büyük", None,
+        return _criterion("NAKIT_KARDAN_BUYUK", None,
                           GECERSIZ,
                           "Banka nakit akışı bilanço büyümesine bağlıdır, kâr kalitesi ölçüsü değildir")
     cfo = now.get("OperatingCashFlow")
     ni = now.get("NetIncome")
     assets = before.get("TotalAssets")
     if cfo is None or ni is None or not assets:
-        return _criterion("NAKIT_KARDAN_BUYUK", "Nakit akışı net kârdan büyük", None,
+        return _criterion("NAKIT_KARDAN_BUYUK", None,
                           EKSIK, "Nakit akışı, net kâr veya varlık verisi yok")
     return _criterion(
-        "NAKIT_KARDAN_BUYUK", "Nakit akışı net kârdan büyük", cfo > ni, OK,
+        "NAKIT_KARDAN_BUYUK", cfo > ni, OK,
         f"Nakit akışı {B.para(cfo)} / net kâr {B.para(ni)}",
         [source("OperatingCashFlow", date, cfo), source("NetIncome", date, ni)],
     )
@@ -305,15 +324,15 @@ def _c_accruals(now, before, date, prev_date, bank):
 
 def _c_leverage(now, before, date, prev_date, bank):
     if bank:
-        return _criterion("KALDIRAC_AZALIYOR", "Uzun vadeli borç yükü azalıyor", None,
+        return _criterion("KALDIRAC_AZALIYOR", None,
                           GECERSIZ, "Banka bilançosunda uzun vadeli borç ayrımı yok")
     lev_now = _ratio(now.get("LongTermDebt"), now.get("TotalAssets"))
     lev_before = _ratio(before.get("LongTermDebt"), before.get("TotalAssets"))
     if lev_now is None or lev_before is None:
-        return _criterion("KALDIRAC_AZALIYOR", "Uzun vadeli borç yükü azalıyor", None,
+        return _criterion("KALDIRAC_AZALIYOR", None,
                           EKSIK, "Uzun vadeli borç verisi yok")
     return _criterion(
-        "KALDIRAC_AZALIYOR", "Uzun vadeli borç yükü azalıyor", lev_now < lev_before, OK,
+        "KALDIRAC_AZALIYOR", lev_now < lev_before, OK,
         f"Uzun vadeli borç/varlık {B.yuzde(lev_before, 1, False)} → "
         f"{B.yuzde(lev_now, 1, False)}",
         [source("LongTermDebt", date, now.get("LongTermDebt")),
@@ -323,15 +342,15 @@ def _c_leverage(now, before, date, prev_date, bank):
 
 def _c_current_ratio(now, before, date, prev_date, bank):
     if bank:
-        return _criterion("CARI_ORAN_ARTIYOR", "Cari oran artıyor", None, GECERSIZ,
+        return _criterion("CARI_ORAN_ARTIYOR", None, GECERSIZ,
                           "Banka bilançosunda dönen varlık / kısa vadeli yükümlülük ayrımı yok")
     cr_now = _ratio(now.get("CurrentAssets"), now.get("CurrentLiabilities"))
     cr_before = _ratio(before.get("CurrentAssets"), before.get("CurrentLiabilities"))
     if cr_now is None or cr_before is None:
-        return _criterion("CARI_ORAN_ARTIYOR", "Cari oran artıyor", None, EKSIK,
+        return _criterion("CARI_ORAN_ARTIYOR", None, EKSIK,
                           "Dönen varlık veya kısa vadeli yükümlülük verisi yok")
     return _criterion(
-        "CARI_ORAN_ARTIYOR", "Cari oran artıyor", cr_now > cr_before, OK,
+        "CARI_ORAN_ARTIYOR", cr_now > cr_before, OK,
         f"Cari oran {B.oran(cr_before)} → {B.oran(cr_now)}",
         [source("CurrentAssets", date, now.get("CurrentAssets")),
          source("CurrentLiabilities", date, now.get("CurrentLiabilities"))],
@@ -342,11 +361,11 @@ def _c_shares(now, before, date, prev_date):
     shares_now = now.get("OrdinarySharesNumber")
     shares_before = before.get("OrdinarySharesNumber")
     if not shares_now or not shares_before:
-        return _criterion("HISSE_IHRACI_YOK", "Yeni hisse ihracı yok", None, EKSIK,
+        return _criterion("HISSE_IHRACI_YOK", None, EKSIK,
                           "Hisse sayısı verisi yok")
     change = shares_now / shares_before - 1.0
     return _criterion(
-        "HISSE_IHRACI_YOK", "Yeni hisse ihracı yok", change <= HISSE_TOLERANSI, OK,
+        "HISSE_IHRACI_YOK", change <= HISSE_TOLERANSI, OK,
         f"Hisse sayısı değişimi {B.yuzde(change, 2)}",
         [source("OrdinarySharesNumber", date, shares_now),
          source("OrdinarySharesNumber", prev_date, shares_before)],
@@ -355,15 +374,15 @@ def _c_shares(now, before, date, prev_date):
 
 def _c_gross_margin(now, before, date, prev_date, bank):
     if bank:
-        return _criterion("BRUT_MARJ_ARTIYOR", "Brüt marj artıyor", None, GECERSIZ,
+        return _criterion("BRUT_MARJ_ARTIYOR", None, GECERSIZ,
                           "Bankalar brüt kâr açıklamaz")
     gm_now = _ratio(now.get("GrossProfit"), now.get("TotalRevenue"))
     gm_before = _ratio(before.get("GrossProfit"), before.get("TotalRevenue"))
     if gm_now is None or gm_before is None:
-        return _criterion("BRUT_MARJ_ARTIYOR", "Brüt marj artıyor", None, EKSIK,
+        return _criterion("BRUT_MARJ_ARTIYOR", None, EKSIK,
                           "Brüt kâr verisi yok")
     return _criterion(
-        "BRUT_MARJ_ARTIYOR", "Brüt marj artıyor", gm_now > gm_before, OK,
+        "BRUT_MARJ_ARTIYOR", gm_now > gm_before, OK,
         f"Brüt marj {B.yuzde(gm_before, 1, False)} → {B.yuzde(gm_now, 1, False)}",
         [source("GrossProfit", date, now.get("GrossProfit")),
          source("TotalRevenue", date, now.get("TotalRevenue"))],
@@ -376,10 +395,10 @@ def _c_asset_turnover(rows, index):
     turn_now = _ratio(now.get("TotalRevenue"), before.get("TotalAssets"))
     turn_before = _ratio(before.get("TotalRevenue"), older.get("TotalAssets")) if older else None
     if turn_now is None or turn_before is None:
-        return _criterion("DEVIR_HIZI_ARTIYOR", "Varlık devir hızı artıyor", None, EKSIK,
+        return _criterion("DEVIR_HIZI_ARTIYOR", None, EKSIK,
                           "Üç yıllık varlık/gelir karşılaştırması için yeterli dönem yok")
     return _criterion(
-        "DEVIR_HIZI_ARTIYOR", "Varlık devir hızı artıyor", turn_now > turn_before, OK,
+        "DEVIR_HIZI_ARTIYOR", turn_now > turn_before, OK,
         f"Devir hızı {B.oran(turn_before)} → {B.oran(turn_now)}",
         [source("TotalRevenue", rows[index]["date"], now.get("TotalRevenue")),
          source("TotalAssets", rows[index - 1]["date"], before.get("TotalAssets"))],

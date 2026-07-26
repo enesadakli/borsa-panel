@@ -23,6 +23,7 @@ KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOSYALAR = (
     "core/narrative.py", "core/flags.py", "core/reports.py",
     "core/health.py", "core/risk.py", "core/market.py",
+    "core/sozluk.py",
     "tools/rapor.py", "tools/filtre.py",
 )
 

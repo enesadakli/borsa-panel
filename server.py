@@ -27,6 +27,7 @@ GET /api/piyasa?evren=bist              piyasa genel bakışı
 GET /api/ara?q=sise                     sembol arama (bağlam kaydından)
 POST /api/tarama/baslat                 arka planda evren taraması başlat (gövdede {"evren": "bist"})
 GET /api/tarama/durum                   çalışan taramanın ilerlemesi
+GET /api/sozluk                         terim sözlüğü (arayüz balonları için)
 """
 
 from __future__ import annotations
@@ -57,13 +58,10 @@ from core import screener as S               # noqa: E402
 from core import universe as U               # noqa: E402
 from core.yahoo import YahooClient, YahooError  # noqa: E402
 
+from core.sozluk import SOZLUK, UYARI  # noqa: E402
+
 WEB = os.path.join(KOK, "web")
 VARSAYILAN_PORT = 8737
-
-UYARI = (
-    "Bu araç geçmiş finansal verileri analiz eder, gelecek getiri tahmini veya "
-    "yatırım tavsiyesi vermez."
-)
 
 FAVICON = (
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
@@ -203,6 +201,11 @@ def uc_durum(params: dict) -> dict:
     out["tufe"] = tufe
     out["evds_anahtari_var"] = bool(INF.evds_key())
     return out
+
+
+def uc_sozluk(params: dict) -> dict:
+    """Terim sözlüğü — arayüz balonları bu ucu bir kez çekip önbellekler."""
+    return {"uyari": UYARI, "terimler": SOZLUK}
 
 
 def uc_tarama_baslat(params: dict, body: dict | None = None) -> dict:
@@ -440,6 +443,7 @@ GET_UCLARI = {
     "/api/piyasa": uc_piyasa,
     "/api/ara": uc_ara,
     "/api/tarama/durum": uc_tarama_durum,
+    "/api/sozluk": uc_sozluk,
 }
 
 POST_UCLARI = {
