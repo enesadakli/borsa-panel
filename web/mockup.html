@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Borsa Paneli — Tasarım Mockup'ı</title>
+<style>
+:root{
+  --kagit:#F4F1EA; --murekkep:#14120F; --gri:#6B6459; --cizgi:#14120F;
+  --kart:#FFFDF7; --mavi:#1B44FF; --kirmizi:#D93025; --sari:#F2B705;
+  --yesil:#1E7A46; --golge:5px 5px 0 var(--cizgi);
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{--kagit:#141210;--murekkep:#F4F1EA;--gri:#9C9488;--cizgi:#F4F1EA;
+        --kart:#1D1A17;--mavi:#7A93FF;--kirmizi:#FF6B5E;--sari:#FFC93D;--yesil:#4FC585;}
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--kagit);color:var(--murekkep);
+  font:15px/1.55 ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  padding:0 0 60px;-webkit-font-smoothing:antialiased}
+.sar{max-width:1080px;margin:0 auto;padding:0 20px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- ust bar ---------- */
+header{border-bottom:3px solid var(--cizgi);background:var(--kart)}
+.ustbar{display:flex;align-items:center;gap:18px;padding:14px 0;flex-wrap:wrap}
+.logo{font-weight:800;font-size:19px;letter-spacing:-.4px;
+  border:3px solid var(--cizgi);padding:4px 10px;box-shadow:var(--golge)}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:6px 12px;border:2px solid var(--cizgi);text-decoration:none;
+  color:inherit;font-size:13px;font-weight:600}
+nav a.aktif{background:var(--murekkep);color:var(--kagit)}
+.tazelik{margin-left:auto;font-size:12px;color:var(--gri)}
+.uyari{background:var(--murekkep);color:var(--kagit);font-size:12.5px;
+  padding:7px 0;text-align:center;font-weight:600;letter-spacing:.2px}
+
+/* ---------- kartlar ---------- */
+section{margin-top:26px}
+h2{font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:var(--gri);
+  margin-bottom:10px;font-weight:700}
+.kart{background:var(--kart);border:3px solid var(--cizgi);box-shadow:var(--golge);padding:18px}
+.kart+.kart{margin-top:14px}
+
+/* ---------- sirket basligi ---------- */
+.baslik{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.kod{font-size:34px;font-weight:800;letter-spacing:-1.2px;line-height:1}
+.ad{color:var(--gri);font-size:14px;margin-top:5px}
+.rozetler{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.rozet{font-size:11px;font-weight:700;border:2px solid var(--cizgi);padding:2px 7px;
+  text-transform:uppercase;letter-spacing:.5px}
+.fiyat{margin-left:auto;text-align:right}
+.fiyat b{font-size:28px;font-weight:800;letter-spacing:-.8px}
+.fiyat small{display:block;color:var(--gri);font-size:12px}
+
+/* ---------- narratif ---------- */
+ol.narratif{list-style:none;counter-reset:n}
+ol.narratif li{counter-increment:n;padding:12px 0 12px 40px;position:relative;
+  border-top:1.5px dashed var(--gri)}
+ol.narratif li:first-child{border-top:none}
+ol.narratif li::before{content:counter(n);position:absolute;left:0;top:12px;
+  width:24px;height:24px;border:2px solid var(--cizgi);display:grid;place-items:center;
+  font-size:12px;font-weight:800;font-family:var(--mono)}
+.kaynak{font-size:11.5px;color:var(--gri);margin-top:5px;font-family:var(--mono)}
+.reel{background:var(--sari);color:#14120F;padding:0 4px;font-weight:700}
+
+/* ---------- bayraklar ---------- */
+.bayrak{border:3px solid var(--cizgi);padding:13px 15px;margin-bottom:10px;
+  display:flex;gap:13px;align-items:flex-start}
+.bayrak .etiket{font-size:10.5px;font-weight:800;letter-spacing:.6px;padding:3px 8px;
+  border:2px solid var(--cizgi);white-space:nowrap;text-transform:uppercase}
+.b-kirmizi{border-left:11px solid var(--kirmizi)}
+.b-kirmizi .etiket{background:var(--kirmizi);color:#fff}
+.b-sari{border-left:11px solid var(--sari)}
+.b-sari .etiket{background:var(--sari);color:#14120F}
+.bayrak b{display:block;margin-bottom:3px}
+.efsane{font-size:12px;color:var(--gri);border-left:3px solid var(--gri);
+  padding-left:10px;margin-top:12px}
+details.atlanan{margin-top:12px;font-size:13px}
+details.atlanan summary{cursor:pointer;font-weight:600;font-size:12.5px}
+details.atlanan ul{margin:8px 0 0 18px;color:var(--gri);font-size:12.5px}
+
+/* ---------- metrik tablosu ---------- */
+.kaydir{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
+th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--gri);padding:0 10px 8px;border-bottom:2.5px solid var(--cizgi)}
+td{padding:9px 10px;border-bottom:1px solid color-mix(in srgb,var(--gri) 35%,transparent)}
+td.sayi{text-align:right;font-family:var(--mono);font-weight:600}
+.na{color:var(--gri);font-style:italic;font-size:12.5px}
+.yon{font-size:11px;font-weight:700;padding:1px 6px;border:1.5px solid currentColor}
+.y-artis{color:var(--yesil)} .y-dusus{color:var(--kirmizi)} .y-yatay{color:var(--gri)}
+/* yuzdelik cubugu: konum gosterir, yargi bildirmez */
+.dilim{position:relative;height:9px;background:color-mix(in srgb,var(--gri) 25%,transparent);
+  border:1.5px solid var(--cizgi);min-width:76px}
+.dilim i{position:absolute;top:-3px;width:3px;height:13px;background:var(--murekkep)}
+.dilim u{position:absolute;top:-3px;width:3px;height:13px;background:var(--mavi);opacity:.85}
+
+/* ---------- grafik ---------- */
+.grafik{width:100%;height:auto;display:block}
+.aciklama{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;margin-top:10px}
+.aciklama span{display:flex;align-items:center;gap:6px}
+.nokta{width:12px;height:12px;border:2px solid var(--cizgi);display:inline-block}
+.eksennot{font-size:11.5px;color:var(--gri);margin-top:8px;font-style:italic}
+
+/* ---------- ceyrek raporu ---------- */
+.yorum{border-left:4px solid var(--mavi);padding:9px 0 9px 12px;margin-top:10px;font-size:13.5px}
+.yorum code{font-family:var(--mono);font-size:11px;color:var(--gri);display:block}
+.iki{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.iki{grid-template-columns:1fr}}
+footer{margin-top:36px;padding-top:16px;border-top:3px solid var(--cizgi);
+  font-size:12px;color:var(--gri)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sar ustbar">
+    <div class="logo">BORSA PANELİ</div>
+    <nav>
+      <a href="#" class="aktif">Skor kartı</a>
+      <a href="#">Rapor okuyucu</a>
+      <a href="#">Kalite trendi</a>
+      <a href="#">Tarayıcı</a>
+      <a href="#">Portföy</a>
+      <a href="#">Piyasa</a>
+    </nav>
+    <div class="tazelik mono">veriler 3 saat önce güncellendi · BIST 616 şirket</div>
+  </div>
+</header>
+<div class="uyari">Bu araç geçmiş finansal verileri analiz eder, gelecek getiri tahmini veya yatırım tavsiyesi vermez.</div>
+
+<div class="sar">
+
+  <section>
+    <div class="kart baslik">
+      <div>
+        <div class="kod">SISE.IS</div>
+        <div class="ad">Türkiye Şişe ve Cam Fabrikaları A.Ş.</div>
+        <div class="rozetler">
+          <span class="rozet">Industrials</span>
+          <span class="rozet">Conglomerates</span>
+          <span class="rozet">Tablolar: TRY</span>
+          <span class="rozet">Dönem: 2025-12-31</span>
+        </div>
+      </div>
+      <div class="fiyat">
+        <b class="mono">43,42 ₺</b>
+        <small>son kapanış · 24.07.2026</small>
+        <small>piyasa değeri 129,9 milyar ₺</small>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Şirket özeti — kural tabanlı</h2>
+    <div class="kart">
+      <ol class="narratif">
+        <li>
+          Gelir nominal <b>%−7,6</b> değişti; dönem enflasyonu %+34,9 olduğu için
+          reel olarak <span class="reel">%31,5 küçüldü</span>.
+          <div class="kaynak">NAR_REEL_BUYUME · TotalRevenue@2025-12-31, TotalRevenue@2024-12-31, TÜFE@2024-12..2025-12</div>
+        </li>
+        <li>
+          Net kâr nominal %+50,3 değişirken reel olarak <b>%+11,4</b> oldu.
+          <div class="kaynak">NAR_KAR_REEL · NetIncome@2025-12-31, NetIncome@2024-12-31</div>
+        </li>
+        <li>
+          Faaliyet marjı 2022–2025 arasında %12,7'den %0,0'e geldi; yılda ortalama
+          <b>−4,8 puan</b>, yani daralma.
+          <div class="kaynak">NAR_MARJ_TREND · Marj serisi@2022-12-31..2025-12-31</div>
+        </li>
+        <li>
+          Net kârın yaklaşık <b>%60</b> kadarı serbest nakde dönüşmemiş; kârın önemli
+          bir kısmı kasaya girmemiş görünüyor.
+          <div class="kaynak">NAR_KAR_KALITESI · NetIncome@2025-12-31, FreeCashFlow@2025-12-31</div>
+        </li>
+        <li>
+          Net borç/FAVÖK 2022 yılında 0,80 iken 2025 yılında <b>2,15</b>. Son 12 ay
+          üzerinden ise 2,20.
+          <div class="kaynak">NAR_BORC · NetDebt/EBITDA@2025-12-31, NetDebt/EBITDA@2022-12-31</div>
+        </li>
+        <li>
+          F-Skoru 2023 yılında 5/9 iken 2025 yılında <b>7/9</b>. İyileşen: Brüt marj artıyor.
+          <div class="kaynak">NAR_FSKOR · F-Skoru@2025-12-31</div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Bayraklar</h2>
+    <div class="kart">
+      <div class="bayrak b-kirmizi">
+        <span class="etiket">Kırmızı</span>
+        <div>
+          <b>Reel gelir daralması</b>
+          Gelir üst üste iki dönem reel olarak küçüldü: 2024 %−30,2, 2025 %−31,5.
+          Nominal rakam artmış olsa bile enflasyon sonrası hacim geriliyor.
+          <div class="kaynak">R4_REEL_DARALMA · Reel gelir büyümesi@2024-12-31, @2025-12-31</div>
+        </div>
+      </div>
+      <div class="bayrak b-sari">
+        <span class="etiket">Sarı</span>
+        <div>
+          <b>Enflasyon muhasebesi kırılması</b>
+          Tabloda hem enflasyon muhasebesi öncesi (2022) hem sonrası (2023, 2024, 2025)
+          dönemler var. TMS-29 sonrası tablolar sabit alım gücüyle düzenlendiği için bu
+          sınırı aşan karşılaştırmalar birebir kıyaslanabilir değildir.
+          <div class="kaynak">Y6_TMS29_KIRILMASI · Dönem aralığı@2022-12-31..2025-12-31</div>
+        </div>
+      </div>
+      <p class="efsane">
+        <b>Kırmızı</b> = tanımlı bir kuralın eşiği aşıldı. <b>Sarı</b> = dikkat edilmesi
+        gereken birleşim veya veri sorunu. Bunlar hisse hakkında bir yargı değil,
+        rakamların tetiklediği kurallardır.
+      </p>
+      <details class="atlanan">
+        <summary>Çalıştırılmayan kurallar (0)</summary>
+        <ul><li>Bu şirkette tüm kurallar çalıştırıldı.</li></ul>
+      </details>
+    </div>
+  </section>
+
+  <section>
+    <h2>Metrikler ve bağlamı</h2>
+    <div class="kart kaydir">
+      <table>
+        <thead><tr>
+          <th>Metrik</th><th style="text-align:right">Değer</th><th>Kendi trendi</th>
+          <th style="text-align:right">Sektör medyanı</th><th>Konum</th>
+          <th style="text-align:right">Sektör %</th><th style="text-align:right">Evren %</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>F-Skoru</td><td class="sayi">7/9</td>
+            <td><span class="yon y-artis">artış</span></td><td class="sayi">6,00</td>
+            <td><span class="dilim"><i style="left:78%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">78</td><td class="sayi">71</td></tr>
+          <tr><td>Altman Z</td><td class="sayi">1,67</td>
+            <td><span class="yon y-yatay">yatay</span></td><td class="sayi">3,96</td>
+            <td><span class="dilim"><i style="left:18%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">18</td><td class="sayi">22</td></tr>
+          <tr><td>ROE</td><td class="sayi">%3,9</td>
+            <td><span class="yon y-dusus">düşüş</span></td><td class="sayi">%13,0</td>
+            <td><span class="dilim"><i style="left:24%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">24</td><td class="sayi">17</td></tr>
+          <tr><td>Faaliyet marjı</td><td class="sayi">%0,0</td>
+            <td><span class="yon y-dusus">düşüş</span></td><td class="sayi">%9,5</td>
+            <td><span class="dilim"><i style="left:12%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">12</td><td class="sayi">10</td></tr>
+          <tr><td>Net borç/FAVÖK</td><td class="sayi">2,20</td>
+            <td><span class="yon y-artis">artış</span></td><td class="sayi">0,58</td>
+            <td><span class="dilim"><i style="left:88%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">88</td><td class="sayi">82</td></tr>
+          <tr><td>Faiz karşılama</td><td class="sayi">1,58</td>
+            <td><span class="yon y-dusus">düşüş</span></td><td class="sayi">3,72</td>
+            <td><span class="dilim"><i style="left:29%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">29</td><td class="sayi">31</td></tr>
+          <tr><td>Reel gelir büyümesi</td><td class="sayi">%−31,5</td>
+            <td><span class="yon y-dusus">düşüş</span></td><td class="sayi">%+4,0</td>
+            <td><span class="dilim"><i style="left:6%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">6</td><td class="sayi">7</td></tr>
+          <tr><td>F/K</td><td class="sayi">12,82</td>
+            <td><span class="yon y-yatay">yatay</span></td><td class="sayi">20,68</td>
+            <td><span class="dilim"><i style="left:38%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">38</td><td class="sayi">35</td></tr>
+          <tr><td>PD/DD</td><td class="sayi">0,51</td>
+            <td><span class="yon y-yatay">yatay</span></td><td class="sayi">1,66</td>
+            <td><span class="dilim"><i style="left:21%"></i><u style="left:52%"></u></span></td>
+            <td class="sayi">21</td><td class="sayi">19</td></tr>
+          <tr><td>Brüt marj</td><td class="sayi">%27,6</td>
+            <td><span class="yon y-dusus">düşüş</span></td>
+            <td colspan="4" class="na">Sektör örneklemi yetersiz (n=4, en az 5 gerekiyor)</td></tr>
+        </tbody>
+      </table>
+      <p class="eksennot">
+        Çubuktaki <b>siyah çizgi</b> şirketin konumu, <b>mavi çizgi</b> sektör medyanı.
+        Yüzdelik dilim bir yargı değildir — yalnızca şirketin nerede durduğunu gösterir.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Kalite trendi</h2>
+    <div class="kart">
+      <svg class="grafik" viewBox="0 0 700 260" role="img"
+           aria-label="F-Skoru, marjlar ve net borç/FAVÖK zaman serisi">
+        <g stroke="currentColor" stroke-width="2" opacity=".22">
+          <line x1="60" y1="30" x2="660" y2="30"/><line x1="60" y1="90" x2="660" y2="90"/>
+          <line x1="60" y1="150" x2="660" y2="150"/><line x1="60" y1="210" x2="660" y2="210"/>
+        </g>
+        <g font-size="11" fill="currentColor" opacity=".6" font-family="ui-monospace,monospace">
+          <text x="14" y="34">9</text><text x="14" y="94">6</text>
+          <text x="14" y="154">3</text><text x="14" y="214">0</text>
+          <text x="150" y="235">2022</text><text x="310" y="235">2023</text>
+          <text x="470" y="235">2024</text><text x="620" y="235">2025</text>
+        </g>
+        <!-- F-Skoru: 3 nokta (2023,2024,2025) -->
+        <polyline points="330,110 490,130 640,50" fill="none" stroke="var(--mavi)" stroke-width="4"/>
+        <g fill="var(--mavi)"><circle cx="330" cy="110" r="6"/><circle cx="490" cy="130" r="6"/><circle cx="640" cy="50" r="6"/></g>
+        <!-- Faaliyet marji: 4 nokta -->
+        <polyline points="170,125 330,145 490,180 640,210" fill="none" stroke="var(--kirmizi)"
+                  stroke-width="3" stroke-dasharray="7 4"/>
+        <!-- Net borc/FAVOK -->
+        <polyline points="170,196 330,188 490,170 640,167" fill="none" stroke="var(--sari)" stroke-width="3"/>
+      </svg>
+      <div class="aciklama">
+        <span><i class="nokta" style="background:var(--mavi)"></i> F-Skoru (0–9)</span>
+        <span><i class="nokta" style="background:var(--kirmizi)"></i> Faaliyet marjı (%)</span>
+        <span><i class="nokta" style="background:var(--sari)"></i> Net borç/FAVÖK</span>
+      </div>
+      <p class="eksennot">
+        F-Skoru 3 noktadan oluşuyor: skor bir önceki yılla karşılaştırma gerektirdiği için
+        marjlardan bir dönem az.
+      </p>
+      <p style="margin-top:12px;border-top:1.5px dashed var(--gri);padding-top:12px">
+        <b>Özet:</b> F-Skoru 2023 yılında 5/9 iken 2025 yılında 7/9 oldu. İyileşen kriterler:
+        Brüt marj artıyor. Aynı dönemde net borç/FAVÖK 0,80 → 2,15.
+        <span class="kaynak">QT_OZET</span>
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Gelir — bugünün parasıyla</h2>
+    <div class="kart">
+      <svg class="grafik" viewBox="0 0 700 200" role="img" aria-label="Enflasyona göre düzeltilmiş gelir">
+        <g fill="var(--mavi)" stroke="var(--cizgi)" stroke-width="3">
+          <rect x="60"  y="20"  width="120" height="150"/>
+          <rect x="220" y="45"  width="120" height="125"/>
+          <rect x="380" y="83"  width="120" height="87"/>
+          <rect x="540" y="110" width="120" height="60"/>
+        </g>
+        <g font-size="13" font-weight="700" fill="var(--kagit)" text-anchor="middle"
+           font-family="ui-monospace,monospace">
+          <text x="120" y="45">561 Mr</text><text x="280" y="70">469 Mr</text>
+          <text x="440" y="108">328 Mr</text><text x="600" y="135">224 Mr</text>
+        </g>
+        <g font-size="12" fill="currentColor" text-anchor="middle" opacity=".7">
+          <text x="120" y="190">2022</text><text x="280" y="190">2023</text>
+          <text x="440" y="190">2024</text><text x="600" y="190">2025</text>
+        </g>
+      </svg>
+      <p class="eksennot">
+        TÜFE ile düzeltilmiş (Dünya Bankası, yıllık ortalama endeks) · taban 2025-12-31.
+        Nominal seri: 170,7 → 219,5 → 242,9 → 224,5 milyar ₺.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Son çeyrek — 2026-03-31 / geçen yılın aynı çeyreği</h2>
+    <div class="iki">
+      <div class="kart kaydir">
+        <table style="min-width:0">
+          <thead><tr><th>Kalem</th><th style="text-align:right">Tutar</th><th style="text-align:right">YoY</th></tr></thead>
+          <tbody>
+            <tr><td>Gelir</td><td class="sayi">57,5 Mr</td><td class="sayi" style="color:var(--kirmizi)">−3,4%</td></tr>
+            <tr><td>Brüt kâr</td><td class="sayi">15,9 Mr</td><td class="sayi" style="color:var(--yesil)">+13,1%</td></tr>
+            <tr><td>Faaliyet kârı</td><td class="sayi">−0,75 Mr</td><td class="sayi na">—</td></tr>
+            <tr><td>FAVÖK</td><td class="sayi">15,6 Mr</td><td class="sayi" style="color:var(--yesil)">+3,9%</td></tr>
+            <tr><td>Net kâr</td><td class="sayi">1,88 Mr</td><td class="sayi" style="color:var(--yesil)">+14,8%</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="kart">
+        <div class="yorum">
+          Faaliyet marjı %−3,4'ten %−1,3'e çıktı (+2,0 puan).
+          <code>REP_MARJ_GENISLEME · OperatingIncome@2026-03-31</code>
+        </div>
+        <div class="yorum">
+          Dönem 1,88 milyar net kârla kapandı ama serbest nakit akışı −4,32 milyar —
+          kâr nakde dönüşmemiş.
+          <code>REP_KAR_NAKDE_DONMUYOR · NetIncome, FreeCashFlow@2026-03-31</code>
+        </div>
+        <div class="yorum">
+          Gelir yıllık %−3,4 değişti. Bu dönem için TÜFE verisi bulunmadığından reel
+          karşılığı hesaplanamadı.
+          <code>REP_GELIR_NOMINAL · TotalRevenue@2026-03-31</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Bu araç geçmiş finansal verileri analiz eder, gelecek getiri tahmini veya yatırım
+    tavsiyesi vermez. Veri kaynağı Yahoo Finance; enflasyon serileri TCMB EVDS, ABD BLS
+    ve Dünya Bankası. Rakamlar doğrulanmamıştır, karar öncesi KAP bildirimleriyle
+    karşılaştırılmalıdır.
+  </footer>
+</div>
+</body>
+</html>

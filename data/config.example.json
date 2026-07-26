@@ -1,0 +1,16 @@
+{
+  "evds_api_key": "",
+
+  "_evds_nasil_alinir": [
+    "1. https://evds2.tcmb.gov.tr adresine gir, ucretsiz uyelik olustur.",
+    "2. Giris yaptiktan sonra sag ustte kullanici adina tikla -> 'Profil'.",
+    "3. 'API Anahtari' bolumundeki anahtari kopyala.",
+    "4. Yukaridaki 'evds_api_key' alanina tirnak icinde yapistir.",
+    "Anahtar bos birakilirsa panel calisir ama TRY tablolarda reel (enflasyon",
+    "sonrasi) gosterim kapali kalir, yalnizca nominal rakam gosterilir."
+  ],
+
+  "_us_cpi": "ABD CPI verisi BLS'in acik ucundan aliniyor, anahtar gerekmiyor.",
+
+  "_kurulum": "Bu dosyayi 'config.json' olarak kopyalayip evds_api_key'i doldurun. config.json .gitignore'da — commit edilmez."
+}

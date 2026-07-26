@@ -1,0 +1,19 @@
+# Yahoo Finance / TÜFE önbelleği — büyük, tekrar üretilebilir, sürüm kontrolüne gerek yok.
+data/cache/
+
+# Gerçek EVDS API anahtarı buraya yazılabilir — asla commit edilmesin.
+# Şablon için data/config.example.json'a bakın.
+data/config.json
+
+# Kullanıcının kendi portföy/işlem kaydı — kişisel veri.
+data/portfolio.json
+data/rules.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Editör/OS
+.vscode/
+.idea/
+Thumbs.db
