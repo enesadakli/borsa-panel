@@ -26,14 +26,21 @@ from . import flags as FL
 from . import fundamentals as F
 from . import health as H
 from . import inflation as INF
+from . import market as M
 from . import narrative as N
 from . import reports as R
+from . import risk as RISK
 from . import universe as U
 from .sozluk import UYARI
 
 
-def olustur(client, symbol: str) -> str:
-    """`uc_sirket` ile aynı boru hattı + `quality_timeline`; tek Markdown metni."""
+def olustur(client, symbol: str, bolumler=None) -> str:
+    """`uc_sirket` ile aynı boru hattı + `quality_timeline`; tek Markdown metni.
+
+    `bolumler` verilirse yalnızca o bölümler basılır (bkz. `BOLUM_ADLARI`).
+    Veri toplama tam yapılır; filtreleme yalnızca çıktıdadır — bölüm seçmek
+    hesabı değil, metni kısaltır.
+    """
     market = U.find_market(client, symbol)
     profile = client.profile(symbol)
     pack = F.load(client, symbol, profile)
@@ -80,8 +87,27 @@ def olustur(client, symbol: str) -> str:
         "kar_kalitesi": analysis.get("profit_quality") or {},
         "reel_buyume": analysis.get("real_growth") or {},
         "para_birimi": analysis.get("currency"),
+        "piyasa": M.market_snapshot(context) if context else {},
+        "fiyat": _fiyat_paketi(client, symbol, cpi, profile),
     }
-    return bicimlendir(paket)
+    return bicimlendir(paket, bolumler)
+
+
+def _fiyat_paketi(client, symbol: str, cpi: dict, profile: dict) -> dict:
+    """Fiyat istatistiği + reel karşılığı.
+
+    TÜFE kasıtlı olarak `risk.py`'ye girmiyor (katman temizliği): reel bacak
+    burada, `cpi` zaten elimizdeyken hesaplanıyor.
+    """
+    stats = RISK.symbol_price_stats(client, symbol)
+    if not stats.get("available"):
+        return stats
+    stats["currency"] = profile.get("price_currency")
+    if stats.get("change") is not None:
+        reel = INF.real_growth(cpi, stats["change"], stats["start"], stats["end"])
+        stats["real_change"] = reel.get("real")
+        stats["cpi_growth"] = reel.get("cpi_growth")
+    return stats
 
 
 def _metrik_paketi(analysis: dict, profile: dict, context: dict | None,
@@ -127,31 +153,29 @@ def _metrik_paketi(analysis: dict, profile: dict, context: dict | None,
     return satirlar
 
 
-def bicimlendir(paket: dict) -> str:
-    """Saf Markdown üretici — ağ çağrısı yapmaz, yalnızca `paket`i okur."""
+# Bölüm anahtarı -> üretici. `?bolum=` parametresi bu anahtarları kabul eder;
+# sıra burada tanımlı ve raporun okuma sırasıdır.
+BOLUMLER: tuple[tuple[str, object], ...] = ()  # aşağıda, fonksiyonlar tanımlandıktan sonra dolduruluyor
+
+
+def bicimlendir(paket: dict, bolumler=None) -> str:
+    """Saf Markdown üretici — ağ çağrısı yapmaz, yalnızca `paket`i okur.
+
+    `bolumler` verilirse yalnızca o bölümler basılır (bkz. `BOLUMLER`
+    anahtarları). Dar bir soruda ("borcu nasıl?") modele 14 KB yerine 2 KB
+    vermeyi sağlıyor — gerçek bir RAG kurmadan, sıfır bağımlılıkla.
+    """
     p = paket.get("profil") or {}
     satirlar: list[str] = []
 
     satirlar.append(f"# {paket.get('symbol', '?')} — {p.get('ad') or ''}".rstrip())
     satirlar.append("")
 
-    satirlar.extend(_ozet_blok(paket, p))
-    satirlar.extend(_kimlik(paket, p))
-    satirlar.extend(_tazelik(paket))
-    satirlar.extend(_ozet(paket))
-    satirlar.extend(_bayraklar(paket))
-    satirlar.extend(_metrikler(paket))
-    satirlar.extend(_fskoru(paket))
-    satirlar.extend(_altman(paket))
-    satirlar.extend(_degerleme(paket))
-    satirlar.extend(_karlilik(paket))
-    satirlar.extend(_borc(paket))
-    satirlar.extend(_kar_kalitesi(paket))
-    satirlar.extend(_reel_buyume(paket))
-    satirlar.extend(_kalite(paket))
-    satirlar.extend(_ceyrek(paket))
-    satirlar.extend(_veri_kalitesi(paket))
-    satirlar.extend(_yontem_notlari(paket))
+    istenen = set(bolumler) if bolumler else None
+    for anahtar, uretici in BOLUMLER:
+        if istenen is not None and anahtar not in istenen:
+            continue
+        satirlar.extend(uretici(paket, p) if anahtar in ("ozet", "kimlik") else uretici(paket))
 
     satirlar.append(f"> {UYARI}")
     return "\n".join(satirlar) + "\n"
@@ -671,27 +695,187 @@ def _kalite(paket: dict) -> list[str]:
 
 
 def _ceyrek(paket: dict) -> list[str]:
+    return _donem_bloku(paket, "quarterly", "## Son çeyrek", qoq=True)
+
+
+def _yillik(paket: dict) -> list[str]:
+    """Yıllık karşılaştırma — v1'de hesaplanıyor ama hiç basılmıyordu.
+
+    `REP_BORC_ORANI` yorumu **yalnızca** yıllık blokta üretiliyor; o kural
+    v1 raporunda hiç görünmüyordu.
+    """
+    return _donem_bloku(paket, "annual", "## Yıllık karşılaştırma", qoq=False)
+
+
+def _donem_bloku(paket: dict, anahtar: str, baslik: str, qoq: bool) -> list[str]:
+    """Bir dönem karşılaştırmasını basar (çeyreklik ya da yıllık).
+
+    Yıllıkta `year_ago == previous` olduğu için YoY ve QoQ aynı sayıdır;
+    o yüzden `qoq` sütunu yalnızca çeyreklikte açılır.
+    """
     rapor = paket.get("rapor") or {}
-    c = rapor.get("quarterly") or {}
-    if not c.get("available"):
+    d = rapor.get(anahtar) or {}
+    if not d.get("available"):
         return []
-    out = ["## Son çeyrek", ""]
-    out.append(f"- Dönem: {c.get('current_date') or '—'}" + (
-        f" (karşılaştırma: {c['compare_date']})" if c.get("compare_date") else ""
+    para_birimi = rapor.get("currency") or ""
+    out = [baslik, ""]
+    out.append(f"- Dönem: {d.get('current_date') or '—'}" + (
+        f" (karşılaştırma: {d['compare_date']})" if d.get("compare_date") else ""
     ))
-    out.append("")
-    out.append("| Kalem | Tutar | Yıllık değişim |")
-    out.append("|---|---|---|")
-    for satir in (c.get("lines") or [])[:10]:
-        yoy = (satir.get("yoy") or {})
-        yoy_metin = B.yuzde(yoy.get("pct")) if yoy.get("pct") is not None else (yoy.get("note") or "—")
-        tutar = f"{B.para(satir.get('value'))} {rapor.get('currency') or ''}".strip()
-        out.append(f"| {satir['label']} | {tutar} | {yoy_metin} |")
-    yorumlar = c.get("comments") or []
+
+    reel = d.get("real_revenue") or {}
+    if reel.get("real") is not None:
+        out.append(
+            f"- Gelir reel değişim: {B.yuzde(reel['real'])} "
+            f"(nominal {B.yuzde(reel.get('nominal'))}, "
+            f"TÜFE {B.yuzde(reel.get('cpi_growth'), 1, False)})"
+        )
+
+    basliklar = ["Kalem", "Tutar", "Yıllık değişim"] + (["Çeyreklik"] if qoq else [])
+    satirlar = []
+    for satir in d.get("lines") or []:
+        hucre = [
+            satir.get("label") or satir.get("key") or "—",
+            f"{B.para(satir.get('value'))} {para_birimi}".strip(),
+            _degisim(satir.get("yoy")),
+        ]
+        if qoq:
+            hucre.append(_degisim(satir.get("qoq")))
+        satirlar.append(hucre)
+    out.extend(_tarihce(basliklar, satirlar))
+
+    marjlar = d.get("margins") or {}
+    if marjlar:
+        out.extend(_tarihce(
+            ["Marj", "Bu dönem", "Karşılaştırma", "Fark"],
+            [[m.get("label") or ad, B.puan(m.get("now"), 1), B.puan(m.get("before"), 1),
+              f"{B.sayi(m['delta'], 1, True)} puan" if m.get("delta") is not None else "—"]
+             for ad, m in marjlar.items()],
+        ))
+
+    yorumlar = d.get("comments") or []
     if yorumlar:
         out.append("")
-        for y in yorumlar[:5]:
+        for y in yorumlar:
             out.append(f"- {y['text']} [{y['rule_id']}]")
+    out.append("")
+    return out
+
+
+def _degisim(node: dict | None) -> str:
+    if not node:
+        return "—"
+    if node.get("pct") is not None:
+        return B.yuzde(node["pct"])
+    return node.get("note") or "—"
+
+
+# market.py'nin dört `format` değeri -> core.bicim fonksiyonu.
+_PIYASA_BICIM = {
+    "score": lambda v: f"{B.sayi(v, 1)}/9",
+    "ratio": lambda v: B.oran(v, 2),
+    "points": lambda v: B.puan(v, 1),
+    "share": lambda v: B.yuzde(v, 1, False),
+}
+
+
+def _piyasa(paket: dict) -> list[str]:
+    """Evren bağlamı — "F-Skoru 7" ancak medyanın 5 olduğu bilinince yorumlanabilir.
+
+    `market_snapshot()` ağsız: zaten yüklü bağlam sözlüğünden hesaplanıyor.
+    Yalnızca başlık satırları + şirketin **kendi** sektör satırı basılıyor;
+    30 sektörlük tam tablo ve "en çok yükselen 10" listesi tek şirketlik bir
+    raporda yer kaplamaktan başka bir şey yapmaz.
+    """
+    piyasa = paket.get("piyasa") or {}
+    if not piyasa.get("available"):
+        return []
+    out = ["## Piyasa bağlamı", ""]
+    out.append(
+        f"- Evren: {piyasa.get('market')} · {piyasa.get('scanned')} şirket tarandı"
+        + (f" ({piyasa.get('error_count')} hata)" if piyasa.get("error_count") else "")
+    )
+    yas = paket.get("baglam_yasi_saat")
+    if yas is not None:
+        out.append(f"- Tarama yaşı: {B.sayi(yas, 0)} saat")
+
+    for satir in piyasa.get("headline") or []:
+        if satir.get("value") is None:
+            continue
+        bicim = _PIYASA_BICIM.get(satir.get("format"), lambda v: B.sayi(v, 2))
+        out.append(
+            f"- {satir.get('label')}: {bicim(satir['value'])} (n={satir.get('n', 0)})"
+            + (" · finans hariç" if satir.get("excludes_financials") else "")
+        )
+
+    kendi_sektor = (paket.get("profil") or {}).get("sektor")
+    for sektor in piyasa.get("sectors") or []:
+        if sektor.get("sector") != kendi_sektor:
+            continue
+        out.append("")
+        out.append(f"Şirketin sektörü ({kendi_sektor}, {sektor.get('count')} şirket) medyanları:")
+        for anahtar, m in (sektor.get("metrics") or {}).items():
+            if m.get("median") is None:
+                continue
+            out.append(
+                f"- {m.get('label') or anahtar}: {_metrik_deger(anahtar, m['median'])} "
+                f"(n={m.get('n', 0)})"
+            )
+        break
+
+    if piyasa.get("note"):
+        out.append("")
+        out.append(f"- {piyasa['note']}")
+    out.append("")
+    return out
+
+
+def _fiyat(paket: dict) -> list[str]:
+    """Geçmiş fiyat istatistiği.
+
+    Sınır cümlesi bilerek **iki kez** yazılıyor (başta ve sonda): bu, raporun
+    yön/tahmin çağrıştırmaya en yakın bölümü ve okuyan model kapsamı
+    kaçırmamalı.
+    """
+    f = paket.get("fiyat") or {}
+    if not f.get("available"):
+        return []
+    para_birimi = f.get("currency") or ""
+    out = ["## Fiyat serisi", ""]
+    out.append(
+        "Bu bölüm yalnızca geçmiş fiyat hareketinin istatistiğidir; fiyat yönü "
+        "veya gelecek getiri hakkında bilgi taşımaz."
+    )
+    out.append("")
+    out.append(f"- Pencere: {f.get('start')} – {f.get('end')} ({f.get('days')} işlem günü)")
+    out.append(f"- Son kapanış: {B.sayi(f.get('last'), 2)} {para_birimi}".rstrip())
+    out.append(
+        f"- 52 haftalık aralık: {B.sayi(f.get('low'), 2)} – "
+        f"{B.sayi(f.get('high'), 2)} {para_birimi}".rstrip()
+    )
+    if f.get("position") is not None:
+        out.append(
+            f"- Son kapanış, bu aralığın alt ucundan "
+            f"{B.puan(f['position'] * 100, 0)} yukarıda"
+        )
+    if f.get("change") is not None:
+        satir = f"- Dönem içi değişim: nominal {B.yuzde(f['change'])}"
+        if f.get("real_change") is not None:
+            satir += (f"; dönem enflasyonu {B.yuzde(f.get('cpi_growth'), 1, False)} "
+                      f"olduğu için reel {B.yuzde(f['real_change'])}")
+        out.append(satir)
+    if f.get("annual_volatility") is not None:
+        out.append(
+            f"- Yıllıklandırılmış volatilite: {B.yuzde(f['annual_volatility'], 1, False)} "
+            "(günlük getirilerin standart sapması × √252)"
+        )
+    if f.get("max_drawdown") is not None:
+        out.append(f"- Zirveden en derin geri çekilme: {B.yuzde(f['max_drawdown'])}")
+    out.append("")
+    out.append(
+        "Yukarıdaki istatistikler geçmişi tanımlar; gelecekteki fiyat hakkında "
+        "çıkarım yapmak için kullanılamaz."
+    )
     out.append("")
     return out
 
@@ -735,3 +919,31 @@ def _yontem_notlari(paket: dict) -> list[str]:
         "veya yatırım kararı içermez.",
         "",
     ]
+
+
+# Bölüm kaydı — `bicimlendir()` bu sırayla basar, `?bolum=` bu anahtarları alır.
+# Fonksiyonlar yukarıda tanımlı olduğu için atama dosya sonunda.
+BOLUMLER = (
+    ("ozet", _ozet_blok),
+    ("kimlik", _kimlik),
+    ("tazelik", _tazelik),
+    ("anlati", _ozet),
+    ("bayraklar", _bayraklar),
+    ("metrikler", _metrikler),
+    ("fskor", _fskoru),
+    ("altman", _altman),
+    ("degerleme", _degerleme),
+    ("karlilik", _karlilik),
+    ("borc", _borc),
+    ("kar_kalitesi", _kar_kalitesi),
+    ("reel", _reel_buyume),
+    ("kalite", _kalite),
+    ("ceyrek", _ceyrek),
+    ("yillik", _yillik),
+    ("fiyat", _fiyat),
+    ("piyasa", _piyasa),
+    ("veri_kalitesi", _veri_kalitesi),
+    ("yontem", _yontem_notlari),
+)
+
+BOLUM_ADLARI = tuple(anahtar for anahtar, _ in BOLUMLER)

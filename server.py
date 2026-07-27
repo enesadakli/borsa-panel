@@ -32,6 +32,7 @@ GET /api/tarama/durum                   çalışan taramanın ilerlemesi
 POST /api/tarama/iptal                  çalışan taramayı iptal et
 GET /api/sozluk                         terim sözlüğü (arayüz balonları için)
 GET /api/llm-rapor?sembol=SISE.IS       LLM-okunur Markdown rapor (admin anahtarı ayarlıysa korumalı)
+    &bolum=borc,reel                    isteğe bağlı: yalnızca seçilen bölümler
 """
 
 from __future__ import annotations
@@ -279,9 +280,23 @@ def uc_sozluk(params: dict) -> dict:
 
 
 def uc_llm_rapor(params: dict) -> MetinYanit:
-    """Bir LLM'in arayüzü scrape etmeden okuyabileceği tek-şirket Markdown raporu."""
+    """Bir LLM'in arayüzü scrape etmeden okuyabileceği tek-şirket Markdown raporu.
+
+    `?bolum=borc,reel` yalnızca istenen bölümleri döndürür — dar bir soruda
+    yerel bir modele 14 KB yerine 2 KB vermeyi sağlar.
+    """
     symbol = _sembol(params)
-    return MetinYanit(LLM.olustur(_client, symbol))
+    ham = (params.get("bolum") or [""])[0].strip()
+    bolumler = None
+    if ham:
+        bolumler = [b.strip() for b in ham.split(",") if b.strip()]
+        bilinmeyen = [b for b in bolumler if b not in LLM.BOLUM_ADLARI]
+        if bilinmeyen:
+            raise ApiError(
+                f"bilinmeyen bölüm: {', '.join(bilinmeyen)}. "
+                f"Geçerli bölümler: {', '.join(LLM.BOLUM_ADLARI)}"
+            )
+    return MetinYanit(LLM.olustur(_client, symbol, bolumler))
 
 
 def uc_tarama_baslat(params: dict, body: dict | None = None) -> dict:

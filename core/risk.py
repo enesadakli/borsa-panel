@@ -305,6 +305,59 @@ def analyze(client, summary_data: dict, index_symbol: str | None = None) -> dict
     }
 
 
+def symbol_price_stats(client, symbol: str, days: int = ISLEM_GUNU) -> dict:
+    """Tek sembol için geçmiş fiyat istatistiği — tanımlayıcı, tahmin değil.
+
+    Portföy röntgeninin volatilite/düşüş hesaplarını tek hisseye uygular.
+    LLM raporunun fiyat bölümü bunu kullanıyor: rapor aksi hâlde tamamen
+    fiyat-körü, oysa PD/DD ve Altman'ın X4 terimi piyasa değeri içeriyor —
+    bir okuyucu, PD/DD 0,50'nin %60 düşüş sonrası mı yoksa zirvede mi
+    olduğunu bilmeden o sayıyı doğru okuyamıyor.
+
+    Ağ hatası veya yetersiz geçmişte `available: False` döner; çağıran taraf
+    bölümü sessizce atlar, rapor bu yüzden hiç düşmez.
+    """
+    try:
+        kapanislar = client.cache.closes(symbol)
+    except Exception:  # noqa: BLE001 — fiyat verisi bölümü isteğe bağlı, rapor düşmemeli
+        return {"available": False, "reason": "Fiyat serisi okunamadı"}
+
+    kapanislar = kapanislar[-days:]
+    if len(kapanislar) < MIN_ORTAK_GUN:
+        return {
+            "available": False,
+            "reason": f"Yeterli fiyat geçmişi yok (en az {MIN_ORTAK_GUN} gün gerekiyor)",
+        }
+
+    seviyeler = [deger for _, deger in kapanislar]
+    tarihler = [tarih for tarih, _ in kapanislar]
+
+    getiriler = []
+    for onceki, sonraki in zip(seviyeler, seviyeler[1:]):
+        if onceki:
+            getiriler.append(sonraki / onceki - 1.0)
+
+    sapma = _stdev(getiriler)
+    en_dusuk, en_yuksek, son = min(seviyeler), max(seviyeler), seviyeler[-1]
+    aralik = en_yuksek - en_dusuk
+
+    return {
+        "available": True,
+        "start": tarihler[0],
+        "end": tarihler[-1],
+        "days": len(kapanislar),
+        "last": son,
+        "low": en_dusuk,
+        "high": en_yuksek,
+        # aralığın alt ucundan ne kadar yukarıda (0 = dip, 1 = zirve)
+        "position": ((son - en_dusuk) / aralik) if aralik else None,
+        "change": (son / seviyeler[0] - 1.0) if seviyeler[0] else None,
+        "annual_volatility": (sapma * math.sqrt(ISLEM_GUNU)) if sapma else None,
+        # _max_drawdown SEVİYE serisi bekliyor (value/peak - 1), getiri değil
+        "max_drawdown": _max_drawdown(seviyeler),
+    }
+
+
 def _index_for(rows: list[dict]) -> str:
     """Ağırlığın çoğunluğu hangi piyasadaysa o piyasanın endeksi."""
     tr = sum(1 for satir in rows if str(satir["symbol"]).upper().endswith(".IS"))

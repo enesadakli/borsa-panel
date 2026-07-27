@@ -170,10 +170,44 @@ def _sentetik_paket() -> dict:
                 "available": True, "current_date": "2026-03-31", "compare_date": "2025-03-31",
                 "lines": [
                     {"key": "TotalRevenue", "label": "Gelir", "value": 1_000_000,
-                     "yoy": {"pct": 0.1}},
+                     "yoy": {"pct": 0.1}, "qoq": {"pct": -0.05}},
                 ],
+                "margins": {
+                    "operating": {"label": "Faaliyet marjı", "now": 8.2, "before": 6.1,
+                                  "delta": 2.1},
+                },
                 "comments": [{"rule_id": "REP_GELIR_NOMINAL", "text": "Gelir arttı."}],
             },
+            "annual": {
+                "available": True, "current_date": "2025-12-31", "compare_date": "2024-12-31",
+                "lines": [
+                    {"key": "TotalRevenue", "label": "Gelir", "value": 224_530_000_000,
+                     "yoy": {"pct": -0.076}},
+                ],
+                "real_revenue": {"real": -0.315, "nominal": -0.076, "cpi_growth": 0.349},
+                "comments": [{"rule_id": "REP_GELIR_REEL", "text": "Gelir reel küçüldü."}],
+            },
+        },
+        "fiyat": {
+            "available": True, "start": "2025-07-30", "end": "2026-07-27", "days": 252,
+            "last": 43.62, "low": 32.88, "high": 52.35, "position": 0.55,
+            "change": 0.176, "real_change": -0.128, "cpi_growth": 0.349,
+            "annual_volatility": 0.386, "max_drawdown": -0.247, "currency": "TRY",
+        },
+        "piyasa": {
+            "available": True, "market": "bist", "scanned": 616, "error_count": 0,
+            "headline": [
+                {"key": "fscore", "label": "Medyan F-Skoru", "value": 5.0, "n": 502,
+                 "format": "score", "excludes_financials": False},
+                {"key": "pozitif_fcf", "label": "Serbest nakit akışı pozitif olan şirket oranı",
+                 "value": 0.537, "n": 501, "format": "share"},
+            ],
+            "sectors": [
+                {"sector": "Industrials", "count": 122, "metrics": {
+                    "fscore": {"label": "F-Skoru", "median": 5, "n": 111, "sufficient": True},
+                }},
+            ],
+            "note": "Bu ekran evrenin sayısal fotoğrafını gösterir.",
         },
     }
 
@@ -241,6 +275,28 @@ def test_karsilastirma_hazir_yazilmis():
     """8B model 'değer > medyan' çıkarımını kendisi yapmak zorunda kalmamalı."""
     metin = LLM.bicimlendir(_sentetik_paket())
     assert "medyanın üstünde" in metin or "medyanın altında" in metin
+
+
+def test_bolum_filtresi():
+    """`?bolum=` yalnızca istenen bölümü döndürmeli; başlık ve UYARI kalmalı."""
+    metin = LLM.bicimlendir(_sentetik_paket(), bolumler=["borc"])
+    assert "## Borç profili" in metin
+    assert "## Kimlik" not in metin
+    assert "## Piyasa bağlamı" not in metin
+    assert metin.startswith("# TEST.IS")
+    assert "yatırım tavsiyesi vermez" in metin
+    assert len(metin) < len(LLM.bicimlendir(_sentetik_paket())) / 2
+
+
+def test_bolum_adlari_kaydi_eksiksiz():
+    """Her bölüm üreticisi kayıtta olmalı — kayda girmeyen bölüm filtrelenemez."""
+    kaynak = inspect.getsource(LLM)
+    basliklar = set(re.findall(r'"(## [^"]+)"', kaynak))
+    tam = LLM.bicimlendir(_sentetik_paket())
+    tekil = [LLM.bicimlendir(_sentetik_paket(), bolumler=[ad]) for ad in LLM.BOLUM_ADLARI]
+    birlesik = "\n".join(tekil)
+    eksik = sorted(b for b in basliklar if b in tam and b not in birlesik)
+    assert not eksik, f"BOLUMLER kaydında olmayan bölüm: {eksik}"
 
 
 def test_tablolar_dar():
