@@ -356,7 +356,16 @@ function taramaTakipEt(evren) {
   const kapsayici = document.getElementById("tarama-durumu");
   const metin = document.getElementById("tarama-metin");
   const bar = document.getElementById("tarama-bar-ic");
+  const iptalDugmesi = document.getElementById("tarama-iptal");
   kapsayici.hidden = false;
+  iptalDugmesi.hidden = false;
+  iptalDugmesi.disabled = false;
+  iptalDugmesi.textContent = "İptal";
+
+  const bitir = (gecikme) => {
+    iptalDugmesi.hidden = true;
+    setTimeout(() => { kapsayici.hidden = true; }, gecikme);
+  };
 
   const adim = async () => {
     let durum;
@@ -373,18 +382,40 @@ function taramaTakipEt(evren) {
         (durum.son_sembol ? ` · ${kacir(durum.son_sembol)}` : "");
       bar.style.width = `${oran}%`;
       TARAMA_YOKLAMA_ZAMANLAYICI = setTimeout(adim, 2000);
+    } else if (durum.iptal_edildi) {
+      metin.textContent = `${evren}: tarama iptal edildi — önceki veri korunuyor`;
+      bar.style.width = "0%";
+      bitir(5000);
     } else if (durum.hata) {
       metin.textContent = `${evren}: tarama hata ile bitti — ${durum.hata}`;
       bar.style.width = "0%";
-      setTimeout(() => { kapsayici.hidden = true; }, 8000);
+      bitir(8000);
     } else {
       metin.textContent = `${evren}: tarama tamamlandı`;
       bar.style.width = "100%";
       durumuYukle().then(() => yonlendir());
-      setTimeout(() => { kapsayici.hidden = true; }, 5000);
+      bitir(5000);
     }
   };
   adim();
+}
+
+async function taramaIptalEt() {
+  const iptalDugmesi = document.getElementById("tarama-iptal");
+  iptalDugmesi.disabled = true;
+  iptalDugmesi.textContent = "İptal ediliyor…";
+  try {
+    const yanit = await fetch("/api/tarama/iptal", { method: "POST" });
+    if (!yanit.ok) {
+      const govde = await yanit.json().catch(() => ({}));
+      throw new Error(govde.hata || `HTTP ${yanit.status}`);
+    }
+  } catch (hata) {
+    document.getElementById("tarama-metin").textContent = `iptal edilemedi: ${hata.message}`;
+    iptalDugmesi.disabled = false;
+    iptalDugmesi.textContent = "İptal";
+  }
+  // Sonucu taramaTakipEt'in zaten süren yoklama döngüsü işleyecek.
 }
 
 /* ═══════════════════════════════════════════════════════════════ arama */
@@ -2059,6 +2090,8 @@ document.querySelector("header").addEventListener("click", (olay) => {
     taramaBaslat(dugme.dataset.taramaBaslatDurum);
   }
 });
+
+document.getElementById("tarama-iptal").addEventListener("click", taramaIptalEt);
 
 window.addEventListener("hashchange", yonlendir);
 

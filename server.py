@@ -27,6 +27,7 @@ GET /api/piyasa?evren=bist              piyasa genel bakışı
 GET /api/ara?q=sise                     sembol arama (bağlam kaydından)
 POST /api/tarama/baslat                 arka planda evren taraması başlat (gövdede {"evren": "bist"})
 GET /api/tarama/durum                   çalışan taramanın ilerlemesi
+POST /api/tarama/iptal                  çalışan taramayı iptal et
 GET /api/sozluk                         terim sözlüğü (arayüz balonları için)
 GET /api/llm-rapor?sembol=SISE.IS       LLM-okunur Markdown rapor (admin anahtarı ayarlıysa korumalı)
 """
@@ -123,6 +124,10 @@ def admin_dogrula(headers) -> None:
 KORUNAN_UCLAR = {"/api/llm-rapor"}
 
 
+class _TaramaIptalEdildi(Exception):
+    """`ilerleme()` geri çağrısından fırlatılır; `hata` değil `iptal_edildi` olarak işaretlenir."""
+
+
 class TaramaYoneticisi:
     """Panelden tetiklenen arka plan evren taraması.
 
@@ -143,13 +148,21 @@ class TaramaYoneticisi:
     Sadece tek bir eşzamanlı tarama desteklenir (`_durum["calisiyor"]` bayrağı
     ile korunur) — iki taramanın aynı anda aynı diske yazması anlamsız ve
     istek oranını gereksiz ikiye katlar.
+
+    İptal, `build_metric_context`'in kendi `progress` geri çağrısından bir
+    `_TaramaIptalEdildi` fırlatarak yapılıyor — döngünün ortasından çıkmanın
+    başka yolu yok, fonksiyon dıştan durdurulabilir tasarlanmamış. Yarıda
+    kesilen bir tarama `client.cache.set_record(...)` satırına hiç ulaşmaz
+    (o satır döngünün sonunda), yani eski `context` kaydı olduğu gibi kalır —
+    kısmi/bozuk bir kayıt yazılma riski yok.
     """
 
     def __init__(self) -> None:
         self._kilit = threading.Lock()  # yalnızca birkaç sayacı korur, ms mertebesinde
+        self._iptal_bayragi = threading.Event()
         self._durum: dict = {
             "calisiyor": False, "evren": None, "index": 0, "toplam": 0,
-            "son_sembol": None, "hata": None,
+            "son_sembol": None, "hata": None, "iptal_edildi": False,
         }
 
     def durum(self) -> dict:
@@ -162,11 +175,18 @@ class TaramaYoneticisi:
                 raise ApiError(
                     f"zaten bir tarama çalışıyor ({self._durum['evren']})", status=409
                 )
+            self._iptal_bayragi.clear()
             self._durum = {
                 "calisiyor": True, "evren": market, "index": 0, "toplam": 0,
-                "son_sembol": None, "hata": None,
+                "son_sembol": None, "hata": None, "iptal_edildi": False,
             }
         threading.Thread(target=self._calistir, args=(market,), daemon=True).start()
+
+    def iptal_et(self) -> None:
+        with self._kilit:
+            if not self._durum["calisiyor"]:
+                raise ApiError("çalışan bir tarama yok", status=409)
+        self._iptal_bayragi.set()
 
     def _calistir(self, market: str) -> None:
         client = YahooClient()  # ayrı örnek: global _client/_kilit'e dokunmaz
@@ -176,15 +196,21 @@ class TaramaYoneticisi:
                 self._durum["index"] = index
                 self._durum["toplam"] = total
                 self._durum["son_sembol"] = symbol
+            if self._iptal_bayragi.is_set():
+                raise _TaramaIptalEdildi()
 
         hata = None
+        iptal = False
         try:
             C.build_metric_context(client, market, progress=ilerleme)
+        except _TaramaIptalEdildi:
+            iptal = True
         except Exception as error:  # noqa: BLE001 — arka plan thread'i, sessizce ölmesin
             hata = f"{type(error).__name__}: {error}"
         with self._kilit:
             self._durum["calisiyor"] = False
             self._durum["hata"] = hata
+            self._durum["iptal_edildi"] = iptal
 
 
 _tarama = TaramaYoneticisi()
@@ -266,6 +292,11 @@ def uc_tarama_baslat(params: dict, body: dict | None = None) -> dict:
 
 def uc_tarama_durum(params: dict) -> dict:
     return _tarama.durum()
+
+
+def uc_tarama_iptal(params: dict, body: dict | None = None) -> dict:
+    _tarama.iptal_et()
+    return {"iptal_istendi": True}
 
 
 def uc_sirket(params: dict) -> dict:
@@ -501,6 +532,7 @@ POST_UCLARI = {
     "/api/portfoy/islem": uc_portfoy_islem,
     "/api/portfoy/sil": uc_portfoy_sil,
     "/api/tarama/baslat": uc_tarama_baslat,
+    "/api/tarama/iptal": uc_tarama_iptal,
 }
 
 
