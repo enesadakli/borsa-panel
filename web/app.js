@@ -678,13 +678,17 @@ function sirketBasligi(veri) {
         <b>${kacir(TR(p.fiyat, 2))} ${kacir(p.fiyat_para || "")}</b>
         <small>son kapanış</small>
         <small>piyasa değeri ${kacir(para(p.piyasa_degeri, p.fiyat_para || ""))}</small>
-        <small><a class="baglanti-dugme" href="/api/llm-rapor?sembol=${encodeURIComponent(veri.symbol)}"
-          target="_blank" rel="noopener">LLM raporu ↗</a></small>
       </div>
     </div>
     ${notlar.length ? `<div class="uyari-kart u-sari" style="margin-top:12px">
         ${notlar.map((n) => `<p style="margin-top:0">${n}</p>`).join("")}
       </div>` : ""}
+    <div style="margin-top:12px">
+      <a class="dugme ikincil" href="/api/llm-rapor?sembol=${encodeURIComponent(veri.symbol)}"
+        target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;text-decoration:none">
+        📄 LLM raporu görüntüle
+      </a>
+    </div>
   </section>`;
 }
 
