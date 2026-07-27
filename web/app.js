@@ -1782,6 +1782,14 @@ function portfoyOzet(veri) {
 
 function riskPaneli(risk) {
   const k = risk.concentration;
+  // Başlıklar core/risk.py'nin RISK_ETIKETLERI tablosundan geliyor — eskiden
+  // yalnızca burada sabit metin olarak duruyordu, sözlük anahtarına bağlamak
+  // için uydurma bir eşleme kurmak gerekiyordu.
+  const etiketler = risk.etiketler || {};
+  const e = (anahtar, yedek) => {
+    const giris = etiketler[anahtar];
+    return giris ? terim(giris.terim, giris.ad) : kacir(yedek);
+  };
   const dagilim = (liste, anahtar) => {
     const renkler = ["var(--vurgu)", "var(--yesil)", "var(--sari)", "var(--kirmizi)", "#a855f7", "#0ea5e9"];
     return `<div class="dagilim">${liste.map((s, i) =>
@@ -1798,23 +1806,23 @@ function riskPaneli(risk) {
       <div class="panel-bas">Risk röntgeni <small>portföyün yapısı</small></div>
       <div class="panel-ic">
         <div class="serit" style="margin:0">
-          <div class="serit-kart"><div class="serit-etiket">En büyük pozisyon</div>
+          <div class="serit-kart"><div class="serit-etiket">${e("largest", "En büyük pozisyon")}</div>
             <div class="serit-deger">${k.largest ? kacir(yuzde(k.largest[1], false)) : "—"}</div>
             <div class="serit-alt">${k.largest ? kacir(k.largest[0]) : ""}</div></div>
-          <div class="serit-kart"><div class="serit-etiket">İlk 3 pozisyon</div>
+          <div class="serit-kart"><div class="serit-etiket">${e("top3_share", "İlk 3 pozisyon")}</div>
             <div class="serit-deger">${kacir(yuzde(k.top3_share, false))}</div>
             <div class="serit-alt">toplam ağırlık</div></div>
-          <div class="serit-kart"><div class="serit-etiket">${terim("etkin_pozisyon", "Etkin pozisyon sayısı")}</div>
+          <div class="serit-kart"><div class="serit-etiket">${e("effective_positions", "Etkin pozisyon sayısı")}</div>
             <div class="serit-deger">${kacir(TR(k.effective_positions, 1))}</div>
-            <div class="serit-alt">${terim("hhi", "HHI")} ${kacir(TR(k.hhi, 3))}</div></div>
-          ${risk.volatility ? `<div class="serit-kart"><div class="serit-etiket">${terim("volatilite", "Yıllık volatilite")}</div>
+            <div class="serit-alt">${e("hhi", "HHI")} ${kacir(TR(k.hhi, 3))}</div></div>
+          ${risk.volatility ? `<div class="serit-kart"><div class="serit-etiket">${e("volatility", "Yıllık volatilite")}</div>
             <div class="serit-deger">${kacir(yuzde(risk.volatility.annual, false))}</div>
             <div class="serit-alt">${risk.volatility.days} gün · kapsam
               ${kacir(yuzde(risk.volatility.coverage, false))}</div></div>` : ""}
-          ${risk.drawdown ? `<div class="serit-kart"><div class="serit-etiket">${terim("en_kotu_dusus", "Tarihsel en kötü düşüş")}</div>
+          ${risk.drawdown ? `<div class="serit-kart"><div class="serit-etiket">${e("drawdown", "Tarihsel en kötü düşüş")}</div>
             <div class="serit-deger kirmizi">${kacir(yuzde(risk.drawdown.max_drawdown))}</div>
             <div class="serit-alt">${kacir(risk.drawdown.period || "")}</div></div>` : ""}
-          ${risk.beta ? `<div class="serit-kart"><div class="serit-etiket">${terim("beta", "Beta")}</div>
+          ${risk.beta ? `<div class="serit-kart"><div class="serit-etiket">${e("beta", "Beta")}</div>
             <div class="serit-deger">${kacir(TR(risk.beta.value, 2))}</div>
             <div class="serit-alt">${kacir(risk.beta.index)}</div></div>` : ""}
         </div>
@@ -1826,7 +1834,7 @@ function riskPaneli(risk) {
         ${dagilim(risk.currencies, "currency")}
       </div>
       ${risk.correlation && risk.correlation.average !== undefined ? `<div class="panel-ic">
-          <p class="not"><b>${terim("korelasyon", "Korelasyon")}:</b> ortalama ${kacir(TR(risk.correlation.average, 2))}
+          <p class="not"><b>${e("correlation", "Korelasyon")}:</b> ortalama ${kacir(TR(risk.correlation.average, 2))}
             (${risk.correlation.days} gün). En yüksek
             ${kacir(risk.correlation.highest[0])}–${kacir(risk.correlation.highest[1])}
             ${kacir(TR(risk.correlation.highest[2], 2))}. Hisseler aynı yöne hareket ettikçe
@@ -1840,18 +1848,24 @@ function riskPaneli(risk) {
 function kalitePanel(kalite) {
   const kovalar = kalite.buckets || [];
   const renkler = { "7–9": "var(--yesil)", "4–6": "var(--sari)", "0–3": "var(--kirmizi)" };
+  // core/risk.py'nin KALITE_ETIKETLERI tablosundan — bkz. riskPaneli'ndeki e().
+  const etiketler = kalite.etiketler || {};
+  const e = (anahtar, yedek) => {
+    const giris = etiketler[anahtar];
+    return giris ? terim(giris.terim, giris.ad) : kacir(yedek);
+  };
   return `<section>
     <div class="panel">
       <div class="panel-bas">Kalite röntgeni <small>portföyün içeriği</small></div>
       <div class="panel-ic">
         <div class="serit" style="margin:0">
-          <div class="serit-kart"><div class="serit-etiket">${terim("agirlikli_fskor", "Ağırlıklı F-Skoru")}</div>
+          <div class="serit-kart"><div class="serit-etiket">${e("weighted_fscore", "Ağırlıklı F-Skoru")}</div>
             <div class="serit-deger buyuk">${kacir(TR(kalite.weighted_fscore, 2))}</div>
-            <div class="serit-alt">${terim("kapsam", "kapsam")} ${kacir(yuzde(kalite.coverage, false))}</div></div>
-          <div class="serit-kart"><div class="serit-etiket">Kâr kalitesi zayıf</div>
+            <div class="serit-alt">${e("coverage", "kapsam")} ${kacir(yuzde(kalite.coverage, false))}</div></div>
+          <div class="serit-kart"><div class="serit-etiket">${e("weak_cash_conversion_weight", "Kâr kalitesi zayıf")}</div>
             <div class="serit-deger">${kacir(yuzde(kalite.weak_cash_conversion_weight, false))}</div>
             <div class="serit-alt">portföy ağırlığı</div></div>
-          <div class="serit-kart"><div class="serit-etiket">Reel küçülen</div>
+          <div class="serit-kart"><div class="serit-etiket">${e("real_shrinking_weight", "Reel küçülen")}</div>
             <div class="serit-deger">${kacir(yuzde(kalite.real_shrinking_weight, false))}</div>
             <div class="serit-alt">portföy ağırlığı</div></div>
         </div>
@@ -1867,7 +1881,7 @@ function kalitePanel(kalite) {
       </div>
       ${(kalite.sector_comparison || []).length ? `<div class="kaydir"><table>
           <thead><tr><th class="metin">Sektör</th><th>Portföy ağırlığı</th>
-            <th>Portföydeki medyan F-Skoru</th><th>${terim("sektor_medyani", "Sektör medyanı")}</th></tr></thead>
+            <th>Portföydeki medyan F-Skoru</th><th>${e("sector_median_fscore", "Sektör medyanı")}</th></tr></thead>
           <tbody>${kalite.sector_comparison.map((s) => `<tr>
               <td class="metin">${kacir(s.sector)}</td>
               <td>${kacir(yuzde(s.weight, false))}</td>

@@ -43,12 +43,23 @@ KRITIK_KALEMLER = [
 
 
 def para(value) -> str:
+    """Kaba, ASCII-güvenli tutar gösterimi — yalnızca duman testi konsol çıktısı için.
+
+    Eskiden `f"{v:,.2f}".replace(",", ".")` kullanılıyordu: bu, İngilizce binlik
+    virgülünü VE ondalık noktasını aynı anda değiştirip yeterince büyük
+    tutarlarda "1,500.00" -> "1.500.00" gibi belirsiz, iki noktalı bir sayı
+    üretiyordu (S5 sınıfı — core.bicim.para() bu tuzağı çözmek için yazıldı,
+    ama bu araç kasıtlı ASCII/nokta-ondalık çıktı istiyor, core.bicim'in
+    Türkçe virgül kuralını istemiyor). Doğru düzeltme binlik ayracını hiç
+    istememek: bölüm sonrası değerler zaten tek/iki/üç basamaklı, ayraca
+    gerek yok.
+    """
     if value is None:
-        return "—"
+        return "-"
     for limit, suffix in ((1e12, "T"), (1e9, "Mr"), (1e6, "Mn"), (1e3, "B")):
         if abs(value) >= limit:
-            return f"{value / limit:,.2f}{suffix}".replace(",", ".")
-    return f"{value:,.2f}".replace(",", ".")
+            return f"{value / limit:.2f}{suffix}"
+    return f"{value:.2f}"
 
 
 def sembol_raporu(client: YahooClient, symbol: str) -> None:
@@ -84,7 +95,7 @@ def sembol_raporu(client: YahooClient, symbol: str) -> None:
         if closes:
             print(
                 f"  seri          : {len(closes)} bar, {closes[0][0]} -> {closes[-1][0]},"
-                f" son kapanis {closes[-1][1]:,.2f}".replace(",", ".")
+                f" son kapanis {closes[-1][1]:.2f}"
             )
         else:
             print("  seri          : bos")

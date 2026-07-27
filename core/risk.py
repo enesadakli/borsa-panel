@@ -33,6 +33,37 @@ GERI_BAKIS_GUN = 750      # ~3 yıl
 KOVALAR = (("yuksek", 7, 9, "7–9"), ("orta", 4, 6, "4–6"), ("dusuk", 0, 3, "0–3"))
 
 
+def _etiket(ad: str, terim: str | None = None) -> dict:
+    """Arayüz başlığı + (varsa) core.sozluk anahtarı — tek yerden.
+
+    Eskiden bu başlıklar (ör. "Yıllık volatilite", "Beta") yalnızca app.js'te
+    sabit metin olarak duruyordu; sözlük anahtarına bağlamak isteyince
+    uydurma bir eşleme kurmak gerekiyordu. Artık burada, verinin kendisiyle
+    aynı yerde tanımlı.
+    """
+    return {"ad": ad, "terim": terim}
+
+
+RISK_ETIKETLERI = {
+    "largest": _etiket("En büyük pozisyon"),
+    "top3_share": _etiket("İlk 3 pozisyon"),
+    "effective_positions": _etiket("Etkin pozisyon sayısı", "etkin_pozisyon"),
+    "hhi": _etiket("HHI", "hhi"),
+    "volatility": _etiket("Yıllık volatilite", "volatilite"),
+    "drawdown": _etiket("Tarihsel en kötü düşüş", "en_kotu_dusus"),
+    "beta": _etiket("Beta", "beta"),
+    "correlation": _etiket("Korelasyon", "korelasyon"),
+}
+
+KALITE_ETIKETLERI = {
+    "weighted_fscore": _etiket("Ağırlıklı F-Skoru", "agirlikli_fskor"),
+    "coverage": _etiket("kapsam", "kapsam"),
+    "weak_cash_conversion_weight": _etiket("Kâr kalitesi zayıf"),
+    "real_shrinking_weight": _etiket("Reel küçülen"),
+    "sector_median_fscore": _etiket("Sektör medyanı", "sektor_medyani"),
+}
+
+
 # ============================================================== fiyat serileri
 
 
@@ -270,6 +301,7 @@ def analyze(client, summary_data: dict, index_symbol: str | None = None) -> dict
         if aligned
         else "Hiçbir pozisyon için yeterli fiyat serisi bulunamadı.",
         "insufficient_history": bool(aligned) and not yeterli,
+        "etiketler": RISK_ETIKETLERI,
     }
 
 
@@ -377,6 +409,7 @@ def portfolio_quality(summary_data: dict, context: dict | None) -> dict:
             "F-Skoru geçmiş mali tablolardan hesaplanan bir ölçüttür; yüksek skor "
             "gelecek getiri hakkında bilgi taşımaz."
         ),
+        "etiketler": KALITE_ETIKETLERI,
     }
 
 
