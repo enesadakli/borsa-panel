@@ -195,6 +195,13 @@ nav.sekmeler button[aria-current="page"] { color: var(--vurgu); border-bottom-co
 }
 
 .sirket-kod { font-size: 21px; font-weight: 700; letter-spacing: -0.3px; }
+
+.izleme-yildiz {
+  border: none; background: none; cursor: pointer; font-size: 18px; line-height: 1;
+  color: var(--cok-sonuk); vertical-align: middle; padding: 0 2px;
+}
+.izleme-yildiz.aktif { color: var(--sari); }
+.izleme-yildiz:hover { color: var(--sari); }
 .sirket-ad { color: var(--sonuk); font-size: 13.5px; margin-top: 1px; }
 
 .rozetler { display: flex; gap: 6px; margin-top: 11px; flex-wrap: wrap; }

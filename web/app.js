@@ -569,15 +569,66 @@ const ikiSutun = (sol, sag) =>
 
 function karsilama(baslik = "Bir şirket seç") {
   const ornekler = ["SISE.IS", "THYAO.IS", "AKBNK.IS", "ASELS.IS", "TUPRS.IS", "AAPL", "MSFT"];
+  const izleme = izlemeListesi();
   return `<section><div class="durum">
       <h3>${kacir(baslik)}</h3>
       <p>Arama kutusuna sembol veya şirket adı yaz. Araç o şirketin son dört yıllık mali
          tablosunu okur, finansal sağlık kriterlerini hesaplar ve rakamların ne gösterdiğini
          anlatır — enflasyon sonrası reel değerlerle.</p>
+      ${izleme.length ? `<p class="not" style="margin-top:18px;margin-bottom:8px">İzleme listen:</p>
+        <div class="ornek-dugmeler">
+          ${izleme.map((s) => `<button type="button" data-ornek="${kacir(s)}">★ ${kacir(s)}</button>`).join("")}
+        </div>` : ""}
+      <p class="not" style="margin-top:18px;margin-bottom:8px">Örnekler:</p>
       <div class="ornek-dugmeler">
         ${ornekler.map((s) => `<button type="button" data-ornek="${s}">${s}</button>`).join("")}
       </div>
     </div></section>`;
+}
+
+/* ═══════════════════════════════════════════════════════════ izleme listesi
+ *
+ * Sunucu tarafında hiçbir karşılığı yok — tamamen localStorage'da, tarayıcı
+ * başına. Portföyden ayrı bir kavram: portföy gerçek işlemleri tutar, izleme
+ * listesi yalnızca "bunu takip ediyorum" işareti.
+ */
+
+const IZLEME_ANAHTARI = "borsa_panel_izleme_listesi";
+
+function izlemeListesi() {
+  try {
+    const ham = localStorage.getItem(IZLEME_ANAHTARI);
+    const liste = ham ? JSON.parse(ham) : [];
+    return Array.isArray(liste) ? liste : [];
+  } catch {
+    return [];
+  }
+}
+
+function izlemedeMi(sembol) {
+  return izlemeListesi().includes(sembol);
+}
+
+/** Ekler/çıkarır, yeni durumu (true = artık izleniyor) döner. */
+function izlemeyeEkleCikar(sembol) {
+  const liste = izlemeListesi();
+  const index = liste.indexOf(sembol);
+  if (index === -1) liste.push(sembol);
+  else liste.splice(index, 1);
+  try {
+    localStorage.setItem(IZLEME_ANAHTARI, JSON.stringify(liste));
+  } catch {
+    /* localStorage kapalı/dolu olabilir — sessizce geç, kritik değil */
+  }
+  return index === -1;
+}
+
+function izlemeYildizi(sembol) {
+  const aktif = izlemedeMi(sembol);
+  return `<button type="button" class="izleme-yildiz${aktif ? " aktif" : ""}"
+      data-izleme="${kacir(sembol)}"
+      title="${aktif ? "İzleme listesinden çıkar" : "İzleme listesine ekle"}"
+      aria-pressed="${aktif}">${aktif ? "★" : "☆"}</button>`;
 }
 
 function sirketBasligi(veri) {
@@ -619,7 +670,7 @@ function sirketBasligi(veri) {
     <div class="sirket">
       <div class="sirket-ikon">${kacir(bas)}</div>
       <div>
-        <div class="sirket-kod">${kacir(veri.symbol)}</div>
+        <div class="sirket-kod">${kacir(veri.symbol)} ${izlemeYildizi(veri.symbol)}</div>
         <div class="sirket-ad">${kacir(p.ad || "")}</div>
         <div class="rozetler">${rozetler.join("")}</div>
       </div>
@@ -2078,6 +2129,14 @@ document.getElementById("ekran").addEventListener("click", (olay) => {
     taramaDugmesi.disabled = true;
     taramaDugmesi.textContent = "Başlatılıyor…";
     taramaBaslat(taramaDugmesi.dataset.taramaBaslat);
+  }
+  const yildiz = olay.target.closest("button[data-izleme]");
+  if (yildiz) {
+    const aktif = izlemeyeEkleCikar(yildiz.dataset.izleme);
+    yildiz.textContent = aktif ? "★" : "☆";
+    yildiz.classList.toggle("aktif", aktif);
+    yildiz.title = aktif ? "İzleme listesinden çıkar" : "İzleme listesine ekle";
+    yildiz.setAttribute("aria-pressed", String(aktif));
   }
 });
 
