@@ -182,3 +182,89 @@ def test_sembol_buyuk_harfe_ceviriliyor():
     )
     assert temiz["symbol"] == "SISE.IS"
     assert temiz["side"] == P.ALIM
+
+
+# ------------------------------------------------------------- CSV içe aktarım
+#
+# `parse_csv` saf bir fonksiyon (dosyaya yazmaz) — burada doğrudan test
+# edilir. `import_csv` gerçek `data/portfolio.json`'a yazdığı için burada
+# çağrılmıyor; server.py'de manuel + gerçek sunucuya karşı doğrulandı.
+
+
+def test_csv_gecerli_satirlar_ayristiriliyor():
+    metin = (
+        "tarih,sembol,islem,adet,fiyat,komisyon,kur,not\n"
+        "2026-01-15,SISE.IS,alim,100,42.50,15,,İlk alım\n"
+        "2026-03-10,AAPL,alim,10,185.20,5,32.10,\n"
+    )
+    gecerli, hatalar = P.parse_csv(metin)
+    assert hatalar == []
+    assert len(gecerli) == 2
+    assert gecerli[0]["symbol"] == "SISE.IS"
+    assert gecerli[0]["fx_rate"] is None
+    assert gecerli[1]["fx_rate"] == 32.10, "kur sayıya çevrilmeli, string kalmamalı"
+
+
+def test_csv_sutun_sirasi_onemsiz():
+    """DictReader başlıktan eşler — Excel/Sheets dışa aktarımı hangi sırada
+    olursa olsun çalışmalı."""
+    metin = "fiyat,adet,sembol,tarih,islem\n40,10,SISE.IS,2026-01-01,alim\n"
+    gecerli, hatalar = P.parse_csv(metin)
+    assert hatalar == []
+    assert gecerli[0]["price"] == 40.0
+    assert gecerli[0]["quantity"] == 10.0
+
+
+def test_csv_turkce_islem_turu_taniniyor():
+    metin = "tarih,sembol,islem,adet,fiyat\n2026-01-01,SISE.IS,Satım,10,40\n"
+    gecerli, _ = P.parse_csv(metin)
+    assert gecerli[0]["side"] == P.SATIM
+
+
+def test_csv_eksik_sutun_erken_reddediliyor():
+    metin = "tarih,sembol,adet,fiyat\n2026-01-01,SISE.IS,10,40\n"
+    gecerli, hatalar = P.parse_csv(metin)
+    assert gecerli == []
+    assert "islem" in hatalar[0]
+
+
+def test_csv_hatali_satir_digerlerini_bozmuyor():
+    """50 satırlık bir dosyada 1 yazım hatası tamamını reddetmemeli."""
+    metin = (
+        "tarih,sembol,islem,adet,fiyat\n"
+        "2026-01-01,SISE.IS,alim,10,40\n"
+        "2026-02-01,,alim,5,20\n"           # sembol boş -> hatalı
+        "2026-03-01,AKBNK.IS,alim,-5,10\n"  # negatif adet -> hatalı
+        "2026-04-01,THYAO.IS,alim,20,300\n"
+    )
+    gecerli, hatalar = P.parse_csv(metin)
+    assert len(gecerli) == 2
+    assert len(hatalar) == 2
+    assert "satır 3" in hatalar[0] and "satır 4" in hatalar[1]
+
+
+def test_csv_bozuk_kur_satiri_isaretleniyor():
+    metin = "tarih,sembol,islem,adet,fiyat,kur\n2026-01-01,AAPL,alim,10,180,otuziki\n"
+    gecerli, hatalar = P.parse_csv(metin)
+    assert gecerli == []
+    assert "kur" in hatalar[0]
+
+
+def test_csv_bos_dosya():
+    gecerli, hatalar = P.parse_csv("")
+    assert gecerli == []
+    assert hatalar
+
+
+def test_csv_bos_satirlar_atlaniyor():
+    metin = "tarih,sembol,islem,adet,fiyat\n2026-01-01,SISE.IS,alim,10,40\n,,,,\n\n"
+    gecerli, hatalar = P.parse_csv(metin)
+    assert len(gecerli) == 1
+    assert hatalar == []
+
+
+def test_csv_sablonu_kendi_ayristiricisindan_geciyor():
+    """Kullanıcıya indirtilen örnek şablon, aracın kendi ayrıştırıcısıyla hatasız okunmalı."""
+    gecerli, hatalar = P.parse_csv(P.CSV_SABLONU)
+    assert hatalar == []
+    assert len(gecerli) == 2

@@ -19,6 +19,8 @@ her yerde komisyon sonrası nettir.
 
 from __future__ import annotations
 
+import csv
+import io
 import json
 import os
 import time
@@ -119,6 +121,102 @@ def validate_trade(trade: dict) -> dict:
         "commission": commission,
         "fx_rate": trade.get("fx_rate"),  # işlem anındaki kur (varsa)
         "note": (trade.get("note") or "").strip() or None,
+    }
+
+
+# -------------------------------------------------------------- CSV içe aktarım
+
+# CSV başlığı -> validate_trade()'in beklediği alan adı. Sütun sırası
+# önemsiz (DictReader başlıktan eşler), yalnızca bu adların bulunması yeterli.
+_CSV_ALAN_ESLEME = {
+    "tarih": "date", "sembol": "symbol", "islem": "side", "adet": "quantity",
+    "fiyat": "price", "komisyon": "commission", "kur": "fx_rate", "not": "note",
+}
+_CSV_ZORUNLU = {"tarih", "sembol", "islem", "adet", "fiyat"}
+
+# Manuel formdaki <select> değerleriyle aynı ("alim"/"satim") ama kullanıcı
+# elle CSV hazırlarken Türkçe/İngilizce yazmış olabilir — hepsini kabul et.
+_CSV_ISLEM_TURU = {
+    "alim": ALIM, "alım": ALIM, "buy": ALIM,
+    "satim": SATIM, "satım": SATIM, "sell": SATIM,
+}
+
+CSV_SABLONU = (
+    "tarih,sembol,islem,adet,fiyat,komisyon,kur,not\r\n"
+    "2026-01-15,SISE.IS,alim,100,42.50,15,,İlk alım\r\n"
+    "2026-03-10,AAPL,alim,10,185.20,5,32.10,\r\n"
+)
+
+
+def _csv_satirini_cevir(satir: dict) -> dict:
+    """CSV satırındaki ham string değerleri `validate_trade`'in beklediği tiplere çevirir.
+
+    `fx_rate` burada sayıya çevrilir çünkü `build_positions()` onu doğrudan
+    `float(...)` ile kullanıyor (bkz. `_weighted_fx`) — CSV'den string olarak
+    sızarsa hata, işlem eklendikten çok sonra, portföy özeti hesaplanırken
+    ve ilgisiz bir yerde patlardı. Erken ve satırı işaret ederek yakalamak
+    daha iyi.
+    """
+    trade: dict = {}
+    for tr_ad, en_ad in _CSV_ALAN_ESLEME.items():
+        deger = (satir.get(tr_ad) or "").strip()
+        if not deger:
+            continue
+        trade[en_ad] = deger
+    if "side" in trade:
+        trade["side"] = _CSV_ISLEM_TURU.get(trade["side"].strip().lower(), trade["side"])
+    if "fx_rate" in trade:
+        try:
+            trade["fx_rate"] = float(trade["fx_rate"])
+        except ValueError as error:
+            raise PortfolioError(f"kur sayı olmalı: {trade['fx_rate']!r}") from error
+    return trade
+
+
+def parse_csv(text: str) -> tuple[list[dict], list[str]]:
+    """CSV metnini geçerli işlem listesine çevirir; hatalı satırlar atlanır ama bildirilir.
+
+    Başlıklar Türkçe ve sırasız olabilir: tarih,sembol,islem,adet,fiyat,
+    komisyon,kur,not — son üçü isteğe bağlı. Bir satırın hatası diğerlerini
+    etkilemez: 50 satırlık bir dosyada tek bir yazım hatası yüzünden tamamını
+    reddetmek, doğru girilen 49 satırı da kullanıcıya geri göndermek olurdu.
+    Bu fonksiyon dosyaya yazmaz — saf, ağsız, testte doğrudan çağrılabilir.
+    """
+    okuyucu = csv.DictReader(io.StringIO(text))
+    if not okuyucu.fieldnames:
+        return [], ["Dosya boş ya da başlık satırı okunamadı"]
+
+    basliklar = {(ad or "").strip().lower() for ad in okuyucu.fieldnames}
+    eksik = _CSV_ZORUNLU - basliklar
+    if eksik:
+        return [], [f"Eksik sütun(lar): {', '.join(sorted(eksik))}"]
+
+    gecerli: list[dict] = []
+    hatalar: list[str] = []
+    for sira, ham_satir in enumerate(okuyucu, start=2):  # 1 = başlık satırı
+        satir = {(k or "").strip().lower(): v for k, v in ham_satir.items()}
+        if not any((deger or "").strip() for deger in satir.values()):
+            continue  # tamamen boş satır (ör. dosya sonu)
+        try:
+            trade = validate_trade(_csv_satirini_cevir(satir))
+        except PortfolioError as error:
+            hatalar.append(f"satır {sira}: {error}")
+            continue
+        gecerli.append(trade)
+    return gecerli, hatalar
+
+
+def import_csv(text: str) -> dict:
+    """Geçerli satırları deftere ekler; hatalı satırlar rapor edilir, işlemi durdurmaz."""
+    gecerli, hatalar = parse_csv(text)
+    trades = load_trades()
+    if gecerli:
+        trades = trades + gecerli
+        save_trades(trades)
+    return {
+        "eklenen": len(gecerli),
+        "hatalar": hatalar,
+        "islem_sayisi": len(trades),
     }
 
 

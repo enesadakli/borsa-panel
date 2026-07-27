@@ -1765,6 +1765,15 @@ EKRANLAR.portfoy = async function (kap) {
             araç hisse getirisi ile kur getirisini ayrı ayrı gösterebilir. Boş bırakılırsa
             ayrıştırma yapılmaz — uydurulmuş bir giriş kuru yanlış "kur kazancı" üretirdi.</p>
           <div id="islem-mesaj"></div>
+          <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--cizgi)">
+            <p class="not" style="margin-bottom:8px">Çok sayıda işlemin mi var? Aracı kurumun
+              ekstresinden CSV hazırlayıp toplu ekleyebilirsin.</p>
+            <button class="dugme ikincil" type="button" id="csv-ice-aktar">CSV'den içe aktar</button>
+            <a class="baglanti-dugme" href="/api/portfoy/sablon" download="ornek_islemler.csv"
+              style="margin-left:10px">örnek şablonu indir</a>
+            <input type="file" id="csv-dosya" accept=".csv,text/csv" hidden>
+            <div id="csv-mesaj"></div>
+          </div>
         </div>
         ${(veri.islemler || []).length ? `<div class="kaydir"><table>
             <thead><tr><th class="metin">Tarih</th><th class="metin">Sembol</th><th class="metin">İşlem</th>
@@ -1826,6 +1835,52 @@ EKRANLAR.portfoy = async function (kap) {
 
   kap.querySelectorAll("button[data-git]").forEach((b) =>
     b.addEventListener("click", () => git("skor", b.dataset.git)));
+
+  const csvMesaj = kap.querySelector("#csv-mesaj");
+  const csvDosya = kap.querySelector("#csv-dosya");
+  kap.querySelector("#csv-ice-aktar").addEventListener("click", () => csvDosya.click());
+
+  csvDosya.addEventListener("change", async () => {
+    const dosya = csvDosya.files[0];
+    csvDosya.value = "";  // aynı dosyayı üst üste seçebilsin diye
+    if (!dosya) return;
+
+    let metin;
+    try {
+      metin = await dosya.text();
+    } catch {
+      csvMesaj.innerHTML = `<div class="uyari-kart u-kirmizi" style="margin-top:10px">
+        <div class="bas"><span class="tur">Hata</span><span>Dosya okunamadı</span></div></div>`;
+      return;
+    }
+
+    csvMesaj.innerHTML = `<p class="not" style="margin-top:10px">İçe aktarılıyor…</p>`;
+    try {
+      const yanit = await fetch("/api/portfoy/ice-aktar", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ csv: metin }),
+      });
+      const sonuc = await yanit.json();
+      if (!yanit.ok) throw new Error(sonuc.hata || `HTTP ${yanit.status}`);
+
+      const hataVar = (sonuc.hatalar || []).length > 0;
+      csvMesaj.innerHTML = `<div class="uyari-kart ${hataVar ? "u-sari" : "u-bilgi"}" style="margin-top:10px">
+          <div class="bas"><span class="tur">${hataVar ? "Kısmi" : "Tamam"}</span>
+            <span>${sonuc.eklenen} işlem eklendi${hataVar ? `, ${sonuc.hatalar.length} satır atlandı` : ""}</span></div>
+          ${hataVar ? `<ul style="margin-top:6px;padding-left:18px">
+              ${sonuc.hatalar.slice(0, 10).map((h) => `<li>${kacir(h)}</li>`).join("")}
+            </ul>` : ""}
+        </div>`;
+      // yonlendir() tüm ekranı yeniden çiziyor — hemen çağrılırsa yukarıdaki
+      // mesaj görünür olmadan silinirdi. Okunacak kadar bekleyip sonra
+      // tazeleniyor; hata listesi varsa daha uzun süre kalsın.
+      if (sonuc.eklenen > 0) setTimeout(() => yonlendir(), hataVar ? 6000 : 2500);
+    } catch (hata) {
+      csvMesaj.innerHTML = `<div class="uyari-kart u-kirmizi" style="margin-top:10px">
+        <div class="bas"><span class="tur">Hata</span><span>İçe aktarılamadı</span></div>
+        <p>${kacir(hata.message)}</p></div>`;
+    }
+  });
 };
 
 function portfoyOzet(veri) {

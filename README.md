@@ -50,7 +50,7 @@ python server.py
 | **Rapor okuyucu** | Çeyreklik ve yıllık karşılaştırma: kalem kalem YoY/QoQ değişim, marj tablosu, rakamdan türeyen yorum cümleleri |
 | **Kalite trendi** | F-Skoru, marjlar, net borç/FAVÖK ve reel büyümenin dönem dönem seyri; her seri kendi ölçeğinde, ortak zaman ekseninde |
 | **Tarayıcı** | Hazır filtre örnekleri veya kendi kuralın; sonuçlar **eşleşen / kısmi / uygulanamaz** diye üç gruba ayrılır |
-| **Portföy** | İşlem defteri, ortalama maliyet, kur getirisi ayrıştırması, risk röntgeni (yoğunlaşma, korelasyon, volatilite, en kötü düşüş, beta) ve kalite röntgeni |
+| **Portföy** | İşlem defteri (tek tek veya CSV'den toplu), ortalama maliyet, kur getirisi ayrıştırması, risk röntgeni (yoğunlaşma, korelasyon, volatilite, en kötü düşüş, beta) ve kalite röntgeni |
 | **Piyasa** | Evrenin sayısal fotoğrafı: medyanlar, F-Skoru histogramı, sektör tablosu, skoru en çok değişen şirketler |
 | **Karşılaştır** | İki veya üç şirketi yan yana koyar; dönemleri farklıysa (ör. farklı mali yıl sonu) veya biri bayatsa açıkça uyarır, büyüme/metrik/F-Skoru kriter tablolarını sütun sütun gösterir |
 

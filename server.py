@@ -23,6 +23,8 @@ POST /api/tarayici/kaydet               kullanıcı kuralını kaydet
 GET /api/portfoy                        portföy özeti + risk + kalite röntgeni
 POST /api/portfoy/islem                 işlem ekle
 POST /api/portfoy/sil                   işlem sil (gövdede {"index": n})
+POST /api/portfoy/ice-aktar             CSV'den toplu işlem ekle (gövdede {"csv": "..."})
+GET /api/portfoy/sablon                 örnek CSV şablonu (indirilebilir)
 GET /api/piyasa?evren=bist              piyasa genel bakışı
 GET /api/ara?q=sise                     sembol arama (bağlam kaydından)
 POST /api/tarama/baslat                 arka planda evren taraması başlat (gövdede {"evren": "bist"})
@@ -457,6 +459,16 @@ def uc_portfoy_sil(params: dict, body: dict | None = None) -> dict:
     return {"silindi": True, "islem_sayisi": len(trades)}
 
 
+def uc_portfoy_ice_aktar(params: dict, body: dict | None = None) -> dict:
+    if not body or not (body.get("csv") or "").strip():
+        raise ApiError("gövdede 'csv' alanı (metin) gerekli")
+    return PF.import_csv(body["csv"])
+
+
+def uc_portfoy_sablon(params: dict) -> MetinYanit:
+    return MetinYanit(PF.CSV_SABLONU, tur="text/csv; charset=utf-8")
+
+
 def uc_piyasa(params: dict) -> dict:
     market = _evren(params)
     context = _baglam(market)
@@ -519,6 +531,7 @@ GET_UCLARI = {
     "/api/tarayici/kurallar": uc_tarayici_kurallar,
     "/api/tarayici": uc_tarayici,
     "/api/portfoy": uc_portfoy,
+    "/api/portfoy/sablon": uc_portfoy_sablon,
     "/api/piyasa": uc_piyasa,
     "/api/ara": uc_ara,
     "/api/tarama/durum": uc_tarama_durum,
@@ -531,6 +544,7 @@ POST_UCLARI = {
     "/api/tarayici/kaydet": uc_tarayici_kaydet,
     "/api/portfoy/islem": uc_portfoy_islem,
     "/api/portfoy/sil": uc_portfoy_sil,
+    "/api/portfoy/ice-aktar": uc_portfoy_ice_aktar,
     "/api/tarama/baslat": uc_tarama_baslat,
     "/api/tarama/iptal": uc_tarama_iptal,
 }
