@@ -172,7 +172,7 @@ def test_html_metinleri_temiz():
 
 
 def test_js_metinleri_temiz():
-    """web/app.js — F6'ya kadar bu dosya hiç taranmıyordu.
+    """web/*.js — F6'ya kadar bu dosyalar hiç taranmıyordu.
 
     `_taranacak_python()` yalnızca core/tools/server.py'yi, `test_html_metinleri_temiz`
     yalnızca web/*.html'i tarıyor; arayüzdeki en kalabalık sabit metin kaynağı
@@ -181,13 +181,20 @@ def test_js_metinleri_temiz():
     yasak kalıplar yeterince özgül (tam kelime/öbek) olduğu için ham kaynak
     metni üzerinde arama yanlış pozitif üretmez — kod ile veri (dize) ayrımı
     HTML taramasında olduğu gibi burada da gerekmiyor.
+
+    `web/` dinamik `listdir` ile taranır (yalnız app.js sabit ad değil) —
+    dosya bugün tek parça ama ileride bölünürse tarama kendiliğinden kapsar.
     """
-    path = os.path.join(KOK, "web", "app.js")
-    if not os.path.isfile(path):
+    web = os.path.join(KOK, "web")
+    if not os.path.isdir(web):
         return
-    with open(path, "r", encoding="utf-8") as handle:
-        raw = handle.read()
-    hatalar = [f"web/app.js → {ihlal}" for ihlal in _ihlaller(raw)]
+    hatalar = []
+    for name in sorted(os.listdir(web)):
+        if not name.endswith(".js"):
+            continue
+        with open(os.path.join(web, name), "r", encoding="utf-8") as handle:
+            raw = handle.read()
+        hatalar.extend(f"web/{name} → {ihlal}" for ihlal in _ihlaller(raw))
     assert not hatalar, "Yasak dil bulundu:\n   " + "\n   ".join(hatalar)
 
 

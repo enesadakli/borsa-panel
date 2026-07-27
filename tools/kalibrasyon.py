@@ -20,6 +20,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core import bicim as B
 from core import context as C
 from core import flags as FL
 from core import fundamentals as F
@@ -115,7 +116,7 @@ def _evreni_olc(client, market: str, limit: int | None) -> dict | None:
     print(
         f"[{market}] {degerlendirilen} şirket değerlendirildi"
         + (f", {hatali} şirket atlandı" if hatali else "")
-        + f"  ({sure:.0f} sn)"
+        + f"  ({sure:.0f} sn)"  # bicim-istisna: konsol metası, finansal rakam değil
     )
 
     return {
@@ -166,7 +167,8 @@ def _raporla(olcumler: dict[str, dict]) -> int:
         for market in marketler:
             adet, uygulanan, oran = _oran(olcumler[market], kural)
             oranlar[market] = (adet, uygulanan, oran)
-            satir += f"{f'{adet}/{uygulanan} ({oran * 100:.1f}%)':>21s} "
+            hucre = f"{adet}/{uygulanan} ({B.puan(oran * 100, 1)})"
+            satir += f"{hucre:>21s} "
 
         seviye = next(
             (o["seviye"].get(kural) for o in olcumler.values() if o["seviye"].get(kural)),
@@ -179,15 +181,15 @@ def _raporla(olcumler: dict[str, dict]) -> int:
         if not uygulanabilir_var:
             durum = "hicbir evrende uygulanabilir degil"
         elif en_yuksek > COK_SIK and seviye == FL.BILGI:
-            durum = f"sik (%{en_yuksek * 100:.0f}) — bilgi seviyesi, uyari listesinde degil"
+            durum = f"sik ({B.puan(en_yuksek * 100, 0)}) — bilgi seviyesi, uyari listesinde degil"
         elif en_yuksek > COK_SIK:
-            durum = f"COK SIK — esik bilgi tasimiyor (%{en_yuksek * 100:.0f})"
+            durum = f"COK SIK — esik bilgi tasimiyor ({B.puan(en_yuksek * 100, 0)})"
             sorunlu.append((kural, durum))
         elif not tetiklenen_var:
             durum = "HIC TETIKLENMEDI — esik fazla dar olabilir"
             sorunlu.append((kural, durum))
         elif en_yuksek < COK_SEYREK:
-            durum = f"cok seyrek (en yuksek %{en_yuksek * 100:.2f})"
+            durum = f"cok seyrek (en yuksek {B.puan(en_yuksek * 100, 2)})"
             sorunlu.append((kural, durum))
         else:
             sessizler = [m for m, (a, u, _) in oranlar.items() if u and not a]

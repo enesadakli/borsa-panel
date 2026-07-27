@@ -5,12 +5,18 @@ S5 sınıfı: `tools/rapor.py`'de nokta ondalık ("9.00") çıkması, CLI araçl
 kaynaklanıyordu. F2'de düzeltildi ama düzeltme yalnızca o dosyaya uygulandı;
 bu test aynı hatanın *başka bir dosyada* sessizce geri gelmesini engeller.
 
-Taranan dosyalar `core/{narrative,flags,reports,health,risk,market}.py` +
-`tools/{rapor,filtre}.py` — kullanıcıya sayı gösteren tüm modüller. Aranan
-kalıp `:.<N>f`, `:.<N>%`, `:,.<N>f` gibi Python'ın kendi sayı biçimleyicisi;
-bunlar Türkçe virgül/nokta dönüşümünden geçmez. Bilinçli bir istisna
-gerekiyorsa satırın sonuna `# bicim-istisna` yorumu eklenir ve bu tarama onu
-atlar — ama böyle bir satır bugün yok, hedef sıfır.
+`test_dil.py`'nin `_taranacak_python()` örüntüsüyle aynı: `core/` ve `tools/`
+dinamik `listdir` ile taranır, yeni bir modül eklendiğinde elle kayıt
+gerekmez (F8'de bu satır unutulup `core/sozluk.py`/`core/llm_rapor.py` bir
+tur boyunca taranmadan kalmıştı — F4 fazının bicim-lint'i de aynı şekilde
+statik bir tuple'dı). `smoke.py` kasıtlı hariç: çıktısı ASCII olacak şekilde
+tasarlandı (Windows konsol kod sayfası uyumluluğu), Türkçe virgül kuralı
+onun için geçerli değil.
+
+Aranan kalıp `:.<N>f`, `:.<N>%`, `:,.<N>f` gibi Python'ın kendi sayı
+biçimleyicisi; bunlar Türkçe virgül/nokta dönüşümünden geçmez. Bilinçli bir
+istisna gerekiyorsa satırın sonuna `# bicim-istisna` yorumu eklenir ve bu
+tarama onu atlar.
 """
 
 from __future__ import annotations
@@ -20,12 +26,26 @@ import re
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-DOSYALAR = (
-    "core/narrative.py", "core/flags.py", "core/reports.py",
-    "core/health.py", "core/risk.py", "core/market.py",
-    "core/sozluk.py", "core/llm_rapor.py",
-    "tools/rapor.py", "tools/filtre.py", "tools/llm_rapor.py",
-)
+# smoke.py bilinçli hariç (docstring'de gerekçe var).
+_TARAMA_DISI: set[str] = set()
+
+
+def _taranacak_python() -> list[tuple[str, str]]:
+    """(görünen ad, tam yol) — test_dil.py ile aynı dinamik keşif."""
+    out = []
+    for klasor in ("core", "tools"):
+        dizin = os.path.join(KOK, klasor)
+        if not os.path.isdir(dizin):
+            continue
+        for name in sorted(os.listdir(dizin)):
+            if name.endswith(".py") and f"{klasor}/{name}" not in _TARAMA_DISI:
+                out.append((f"{klasor}/{name}", os.path.join(dizin, name)))
+    for name in ("server.py",):
+        path = os.path.join(KOK, name)
+        if os.path.isfile(path):
+            out.append((name, path))
+    return out
+
 
 # Python'ın kendi sayı biçimi: isteğe bağlı işaret/ayraç + nokta + basamak
 # sayısı + tip harfi (f/F/e/E/g/G/%). `{sira:3d}` gibi hizalama amaçlı tam
@@ -49,10 +69,7 @@ def _ihlaller(path: str) -> list[str]:
 
 def test_ham_bicim_kalibi_yok():
     hatalar = []
-    for gorunen in DOSYALAR:
-        path = os.path.join(KOK, gorunen)
-        if not os.path.isfile(path):
-            continue
+    for gorunen, path in _taranacak_python():
         for satir in _ihlaller(path):
             hatalar.append(f"{gorunen}:{satir}")
     assert not hatalar, (

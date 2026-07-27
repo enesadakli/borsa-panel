@@ -25,6 +25,7 @@ listesinde adı geçer.
 
 from __future__ import annotations
 
+from . import bicim as B
 from . import cache as cache_mod
 from . import universe
 from .yahoo import YahooClient, YahooError
@@ -220,8 +221,8 @@ def _tazelik_etiketi(yas) -> str | None:
     if yas < 1.5:
         return "bu ay"
     if yas < 24:
-        return f"{yas:.0f} ay önce"
-    return f"{yas / 12:.1f} yıl önce".replace(".", ",")
+        return f"{B.sayi(yas, 0)} ay önce"
+    return f"{B.sayi(yas / 12, 1)} yıl önce"
 
 
 # Yahoo'nun hisse sayısı ile tablo hisse sayısı arasında bu kattan fazla fark

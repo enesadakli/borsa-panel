@@ -52,8 +52,8 @@ def main(argv: list[str]) -> int:
         hiz = index / gecen if gecen else 0
         kalan = (total - index) / hiz if hiz else 0
         print(
-            f"[{market}] {index}/{total} ({index / total:.0%})  "
-            f"gecen {gecen / 60:.1f} dk  tahmini kalan {kalan / 60:.1f} dk  "
+            f"[{market}] {index}/{total} ({index / total:.0%})  "  # bicim-istisna: canlı ilerleme metası
+            f"gecen {gecen / 60:.1f} dk  tahmini kalan {kalan / 60:.1f} dk  "  # bicim-istisna: konsol metası
             f"son: {symbol}",
             flush=True,
         )
@@ -63,7 +63,7 @@ def main(argv: list[str]) -> int:
 
     print(
         f"\n[{market}] BITTI: {record['count']}/{record['attempted']} sembol, "
-        f"{sure / 60:.1f} dk, {client.request_count} istek",
+        f"{sure / 60:.1f} dk, {client.request_count} istek",  # bicim-istisna: konsol metası
         flush=True,
     )
     if record["errors"]:

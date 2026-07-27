@@ -33,6 +33,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from core import bicim as B
 from core import context as C
 from core import fundamentals as F
 from core import health as H
@@ -151,7 +152,7 @@ def denetle_evren(client: YahooClient, market: str, limit: int | None = None,
     if not sessiz:
         print(f"[{market}] {degerlendirilen} şirket değerlendirildi"
               + (f", {hatali} atlandı" if hatali else "")
-              + f"  ({sure:.0f} sn)")
+              + f"  ({sure:.0f} sn)")  # bicim-istisna: konsol metası, finansal rakam değil
         az_veri = sum(v for n, v in cumle_dagilimi.items() if n < 4)
         print(f"[{market}] cümle sayısı dağılımı (0-3 arası '{az_veri}' şirkette "
               "veri kısıtlı, bu bir ihlal değil — bilgi amaçlı):")
@@ -294,12 +295,12 @@ def _frekans_raporu(
         oran = en_sik / toplam if toplam else 0.0
         if not sessiz:
             print(f"   {rule_id:24s} {n:4d} şirkette çıktı, en sık tekrar: "
-                  f"{en_sik} ({oran * 100:.1f}%)")
+                  f"{en_sik} ({B.puan(oran * 100, 1)})")
 
         if oran > COK_SIK_AYNI:
             ornek_metin = max(birebir, key=birebir.get)
             ihlaller.append(
-                f"{tur} {rule_id}: birebir aynı metin şirketlerin %{oran * 100:.0f}'inde "
+                f"{tur} {rule_id}: birebir aynı metin şirketlerin {B.puan(oran * 100, 0)}'inde "
                 f"tekrarlanıyor — gürültü olabilir. Örnek: {ornek_metin[:100]!r}"
             )
     return ihlaller

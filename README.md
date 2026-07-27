@@ -52,9 +52,13 @@ python server.py
 | **Tarayıcı** | Hazır filtre örnekleri veya kendi kuralın; sonuçlar **eşleşen / kısmi / uygulanamaz** diye üç gruba ayrılır |
 | **Portföy** | İşlem defteri, ortalama maliyet, kur getirisi ayrıştırması, risk röntgeni (yoğunlaşma, korelasyon, volatilite, en kötü düşüş, beta) ve kalite röntgeni |
 | **Piyasa** | Evrenin sayısal fotoğrafı: medyanlar, F-Skoru histogramı, sektör tablosu, skoru en çok değişen şirketler |
+| **Karşılaştır** | İki veya üç şirketi yan yana koyar; dönemleri farklıysa (ör. farklı mali yıl sonu) veya biri bayatsa açıkça uyarır, büyüme/metrik/F-Skoru kriter tablolarını sütun sütun gösterir |
 
 Arayüz açık/koyu temayı işletim sisteminden alır. Tüm sayılar Türkçe biçimde
-(binlik nokta, ondalık virgül) ve tablo hizasında gösterilir.
+(binlik nokta, ondalık virgül) ve tablo hizasında gösterilir. F-Skoru, PD/DD,
+FAVÖK gibi terimlerin üstüne gelince (mobilde dokununca) sade bir açıklama
+balonu çıkar — kaynağı tek bir sözlük (`core/sozluk.py`), `/api/sozluk`
+ucundan gelir.
 
 ### Enflasyon verisi
 
@@ -70,11 +74,30 @@ Reel hesaplar için TÜFE serisi gerekir. Araç üç kaynağı katmanlı kullan�
 
 1. <https://evds2.tcmb.gov.tr> — ücretsiz üyelik
 2. Profil → API Anahtarı
-3. `data/config.json` içindeki `evds_api_key` alanına yapıştır
+3. `data/config.example.json`'ı `data/config.json` olarak kopyala (bu dosya
+   `.gitignore`'da — gerçek anahtar hiç commit edilmez), `evds_api_key`
+   alanına yapıştır
 
 Önemli kural: hangi TÜFE'nin kullanılacağını şirketin **mali tablo para birimi**
 belirler, borsası değil. THYAO bir BIST hissesi ama tablolarını USD açıkladığı
 için US CPI ile düzeltilir.
+
+### LLM raporu ve admin kilidi
+
+`GET /api/llm-rapor?sembol=SISE.IS` bir LLM'in doğrudan okuyabileceği tek
+sayfalık Markdown rapor döner (kimlik, bayraklar, F-Skoru, sektör bağlamı,
+kalite trendi, son çeyrek — hepsi tek istekte). Aynı çıktı terminalden de
+alınır:
+
+```bash
+python tools/llm_rapor.py SISE.IS --dosya sise.md
+```
+
+Aynı `config.json`'daki `admin_anahtari` alanı **boş bırakılırsa** uç
+serbesttir (yerel, tek kullanıcılı kurulumda anlamı yok — zaten admin sensin).
+Bir değer yazılırsa uç yalnızca `X-Admin-Anahtar: <değer>` başlığı gönderen
+isteklere yanıt verir; panel ileride çok kullanıcılı bir uygulamaya
+dönüşürse tek yapılacak şey bu alanı doldurmak.
 
 ## Kullanım
 
@@ -82,9 +105,11 @@ için US CPI ile düzeltilir.
 python server.py                    # paneli aç (http://127.0.0.1:8737)
 python tools/tarama.py bist         # BIST evrenini tara (~17 dk, 7 gün geçerli)
 python tools/tarama.py us           # ABD ilk 500 (~18 dk)
-python tools/kalibrasyon.py bist    # bayrak eşiklerini evren üzerinde ölç
+python tools/kalibrasyon.py bist us # bayrak eşiklerini evrenler arasında ölç
+python tools/anlati_denetim.py bist # anlatı cümlelerini gürültü/çelişki için tara
+python tools/llm_rapor.py SISE.IS   # LLM-okunur Markdown rapor
 python smoke.py                     # veri katmanı duman testi
-python tests/run.py                 # testler (46 test)
+python tests/run.py                 # testler (85 test)
 ```
 
 ### Terminalden kullanım
@@ -133,12 +158,16 @@ core/
   portfolio.py      işlem defteri, ortalama maliyet, kur ayrıştırması
   risk.py           yoğunlaşma, korelasyon, volatilite, kalite röntgeni
   market.py         piyasa genel bakışı (yorum cümlesi yok)
-server.py           yerel HTTP sunucusu + JSON API (16 uç)
+  sozluk.py         terim sözlüğü — tek kaynak (arayüz balonları + UYARI)
+  llm_rapor.py      LLM-okunur Markdown rapor (olustur/bicimlendir ayrımı)
+server.py           yerel HTTP sunucusu + JSON API (17 uç)
 tools/
   tarama.py         evren tarayıcı (bağlam tablolarını doldurur)
   rapor.py          terminalden tam şirket raporu
   filtre.py         terminalden tarayıcı
-  kalibrasyon.py    bayrak eşiklerini evren üzerinde ölçer
+  kalibrasyon.py    bayrak eşiklerini evrenler arasında ölçer
+  anlati_denetim.py anlatı cümlelerini gürültü/çelişki için tüm evrende tarar
+  llm_rapor.py      terminalden LLM-okunur Markdown rapor
 tests/run.py        test koşucusu (pytest gerekmez)
 ```
 
@@ -216,15 +245,30 @@ Kalibrasyonun değiştirdiği üç şey:
 python tests/run.py
 ```
 
-- `test_dil.py` — kullanıcıya görünen tüm metinleri yasak dil listesine karşı
-  tarar (al/sat sinyali, hedef fiyat, "ucuz/pahalı", öneri dili) ve zorunlu uyarı
-  metninin her sayfada bulunduğunu doğrular
+- `test_dil.py` — kullanıcıya görünen tüm metinleri (core/tools/server.py string
+  sabitleri + web/*.html + web/*.js) yasak dil listesine karşı tarar (al/sat
+  sinyali, hedef fiyat, "ucuz/pahalı", öneri dili) ve zorunlu uyarı metninin her
+  sayfada bulunduğunu doğrular
 - `test_fskor.py` — 9 kriteri motordan bağımsız bir kod yoluyla yeniden hesaplayıp
   karşılaştırır; eksik kalemin sıfır sayılmadığını ve banka kenar durumunu test eder
-- `test_reel.py` — `deflate` formülünü ve **para birimi → TÜFE eşlemesini** test
-  eder (bir ABD şirketinin Türkiye TÜFE'siyle düzeltilmediği ayrıca kontrol edilir)
+- `test_reel.py` — `deflate` formülünü, **para birimi → TÜFE eşlemesini** (bir ABD
+  şirketinin Türkiye TÜFE'siyle düzeltilmediği) ve EUR şirketlerinde ülkeye göre
+  TÜFE seçimini (DOCO→Avusturya) test eder
 - `test_portfoy.py` — elle hesaplanmış senaryolarla ortalama maliyet, kısmi satış
   ve kur getirisi ayrıştırması
+- `test_tarayici.py` — filtre motorunun üç değerli mantığı (eşleşen/kısmi/uygulanamaz)
+  ve alan kataloğu
+- `test_anlati.py` — `tools/anlati_denetim.py`'nin bulduğu 0 ihlali kalıcı hâle
+  getirir + karşılaştırılabilir-çift seçiminin hedefli regresyon testleri
+- `test_tazelik.py` — veri yaşı hesabı, eşik sınırları, Y7 bayrağı ve F-Skoru
+  zaman çizgisinde kapsam-farkı/değişmedi çelişkisi regresyonu
+- `test_bicim_lint.py` — `core/` ve `tools/`'u ham sayı biçimlerine (`:.2f` gibi,
+  Türkçe virgüle çevrilmeyen) karşı dinamik olarak tarar
+- `test_sozluk.py` — her metrik/kriter/tarayıcı alanının `core/sozluk.py`'de
+  karşılığı olduğunu ve görünen adların birebir eşleştiğini kilitler
+- `test_llm_rapor.py` — Markdown rapordaki bölüm kapsamını, Türkçe ondalık
+  sızıntısı olmadığını ve admin kilidinin üç durumunu (anahtar yok/yanlış/doğru)
+  test eder
 
 ---
 
