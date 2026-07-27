@@ -12,6 +12,7 @@ bağlamadan; `server.py`'yi import etmek yalnızca nesneleri kurar.
 
 from __future__ import annotations
 
+import inspect
 import os
 import re
 import sys
@@ -79,13 +80,85 @@ def _sentetik_paket() -> dict:
             ],
             "model_note": None,
         },
-        "baglam": [
-            {"metric": "fscore", "label": "F-Skoru", "available": True, "value": 6,
-             "trend": {"direction": "artış"}, "sector_median": 5, "sector_n": 40,
-             "sector_percentile": 70, "universe_percentile": 65},
-            {"metric": "net_debt_ebitda", "label": "Net borç/FAVÖK", "not_applicable": True},
+        "metrikler": [
+            {"metric": "fscore", "label": "F-Skoru", "value": 6, "trend": "artış",
+             "sector_median": 5, "sector_n": 40, "sector_percentile": 70,
+             "universe_median": 5, "universe_percentile": 65},
+            {"metric": "roe", "label": "ROE", "value": 0.084},
+            {"metric": "net_debt_ebitda", "label": "Net borç/FAVÖK",
+             "not_applicable": True},
+            {"metric": "pe", "label": "F/K", "value": None},
         ],
         "baglam_var": True,
+        "baglam_yasi_saat": 26.0,
+        "altman": {
+            "value": 1.67, "status": "ok", "detail": "Z = 1,67", "sources": [],
+            "zone": "sıkışma bölgesi",
+            "components": {"X1": 0.12, "X2": 0.31, "X3": 0.04, "X4": 0.55, "X5": 0.43},
+        },
+        "degerleme": {
+            "pe": {"value": 12.7, "status": "ok", "detail": "F/K = 12,69", "sources": [],
+                   "basis": "TTM"},
+            "pb": {"value": 0.5, "status": "ok", "detail": "PD/DD = 0,50", "sources": []},
+            "market_cap_statement_currency": 128_560_000_000, "currency": "TRY",
+            "converted": False,
+        },
+        "getiriler": {
+            "roe": {"value": 0.039, "status": "ok", "detail": "ROE = %3,9 (TTM kâr)",
+                    "sources": []},
+            "roa": {"value": 0.019, "status": "ok", "detail": "ROA = %1,9", "sources": []},
+        },
+        "marjlar": {
+            "series": {
+                "gross": [("2024-12-31", 22.6), ("2025-12-31", 27.6)],
+                "operating": [("2024-12-31", 5.1), ("2025-12-31", 0.0)],
+                "net": [("2024-12-31", 3.0), ("2025-12-31", 4.4)],
+            },
+            "operating_trend": {"value": -4.8, "status": "ok",
+                                "detail": "Yılda -4,8 puan", "sources": [],
+                                "direction": "daralma"},
+        },
+        "borc": {
+            "debt_to_equity": {"value": 0.66, "status": "ok",
+                               "detail": "Borç/özsermaye = 0,66", "sources": []},
+            "net_debt_ebitda": {"value": 2.2, "status": "ok",
+                                "detail": "Net borç/FAVÖK = 2,20 (TTM FAVÖK)",
+                                "sources": []},
+            "history": [
+                {"date": "2024-12-31", "net_debt": 100_920_000_000,
+                 "ebitda": 53_430_000_000, "net_debt_ebitda": 1.89},
+                {"date": "2025-12-31", "net_debt": 123_780_000_000,
+                 "ebitda": 57_450_000_000, "net_debt_ebitda": 2.15},
+            ],
+        },
+        "kar_kalitesi": {
+            "fcf_gap": {"value": 0.604, "status": "ok",
+                        "detail": "Net kârın %60 kadarı nakde dönmemiş", "sources": []},
+            "accrual_ratio": {"value": None, "status": "eksik_veri",
+                              "detail": "Veri yok", "sources": []},
+            "history": [
+                {"date": "2025-12-31", "net_income": 9_880_000_000,
+                 "operating_cash_flow": 39_730_000_000,
+                 "free_cash_flow": 3_900_000_000},
+            ],
+        },
+        "reel_buyume": {
+            "revenue": {
+                "real": -0.315, "nominal": -0.076, "cpi_growth": 0.349,
+                "label": "TÜFE (Dünya Bankası, yıllık ortalama)", "sources": [],
+                "history": [
+                    {"date": "2024-12-31", "real": -0.302, "cpi_growth": 0.484},
+                    {"date": "2025-12-31", "real": -0.315, "cpi_growth": 0.349},
+                ],
+            },
+            "net_income": {"real": 0.114, "nominal": 0.503, "cpi_growth": 0.349,
+                           "sources": [], "history": []},
+            "real_revenue_series": {
+                "points": [("2024-12-31", 143_250_000_000),
+                           ("2025-12-31", 138_660_000_000)],
+                "base": "2025-12-31", "label": "TÜFE (Dünya Bankası)", "skipped": [],
+            },
+        },
         "kalite": {
             "fscore": [{"date": "2024-12-31", "value": 5}, {"date": "2025-12-31", "value": 6}],
             "summary": {"rule_id": "QT_OZET", "text": "F-Skoru 5'ten 6'ya çıktı."},
@@ -105,18 +178,79 @@ def _sentetik_paket() -> dict:
     }
 
 
-def test_bolumler_var():
+def test_tum_bolumler_fikstur_tarafindan_tetikleniyor():
+    """Kaynaktaki her `## ` başlığı fikstürle üretilebilmeli.
+
+    Sabit bir "beklenen başlıklar" listesi çürümeye açıktı: yeni bir bölüm
+    eklenip fikstür güncellenmeyince o bölüm sessizce hiç test edilmemiş
+    oluyordu. Bu test başlıkları kaynaktan keşfediyor (test_dil ve
+    test_bicim_lint'in dinamik dosya keşfiyle aynı ruh), böylece yeni bölüm
+    fikstüre girene kadar süit kırmızı yanıyor.
+
+    Şart: başlıklar düz string sabiti olmalı, f-string olursa regex görmez.
+    """
+    kaynak = inspect.getsource(LLM)
+    basliklar = set(re.findall(r'"(## [^"]+)"', kaynak))
+    assert basliklar, "kaynakta hiç bölüm başlığı bulunamadı — regex bozulmuş olabilir"
+
     metin = LLM.bicimlendir(_sentetik_paket())
-    beklenen_basliklar = (
-        "## Kimlik", "## Veri tazeliği", "## Kural tabanlı özet", "## Bayraklar",
-        "## Piotroski F-Skoru", "## Metrikler ve sektör bağlamı",
-        "## Kalite zaman çizgisi", "## Son çeyrek", "## Veri kalitesi notları",
-        "## Yöntem notları",
-    )
-    for baslik in beklenen_basliklar:
-        assert baslik in metin, f"eksik bölüm: {baslik}"
+    eksik = sorted(b for b in basliklar if b not in metin)
+    assert not eksik, f"fikstür şu bölümleri tetiklemiyor: {eksik}"
+
+
+def test_zorunlu_alanlar_var():
+    metin = LLM.bicimlendir(_sentetik_paket())
     assert "yatırım tavsiyesi vermez" in metin
     assert "TEST.IS" in metin
+    assert metin.startswith("# TEST.IS")
+
+
+def test_baglamsiz_paket_metrikleri_kaybetmiyor():
+    """Asıl regresyon kilidi.
+
+    v1'de metrikler yalnızca `all_metric_contexts()`'ten geliyordu; evren
+    taranmamışsa ya da sembol tarama kaydında yoksa ROE/Altman/borç oranları
+    rapordan tamamen düşüyordu. Artık analizden geliyorlar — tarama yalnızca
+    karşılaştırma sütunlarını ekliyor.
+    """
+    paket = _sentetik_paket()
+    paket["baglam_var"] = False
+    paket["baglam_yasi_saat"] = None
+    # tarama yok → karşılaştırma alanları hiç gelmez, değer ve trend kalır
+    paket["metrikler"] = [
+        {"metric": "fscore", "label": "F-Skoru", "value": 6, "trend": "artış"},
+        {"metric": "roe", "label": "ROE", "value": 0.084},
+        {"metric": "net_debt_ebitda", "label": "Net borç/FAVÖK", "not_applicable": True},
+        {"metric": "pe", "label": "F/K", "value": None},
+    ]
+    metin = LLM.bicimlendir(paket)
+
+    for beklenen in ("F-Skoru", "ROE", "Altman Z", "Borç profili", "Kâr kalitesi"):
+        assert beklenen in metin, f"bağlamsız pakette kayboldu: {beklenen}"
+    assert "%8,4" in metin, "ROE değeri basılmalı (tarama olmasa da)"
+    assert "sektör bağlamı yok" in metin, "sebep Veri kalitesi'nde yazmalı"
+
+
+def test_hesaplanamayan_metrik_atlanmiyor():
+    """`eksik_veri` satırı sessizce düşmemeli — denenip başarısız olduğu görünmeli."""
+    metin = LLM.bicimlendir(_sentetik_paket())
+    assert "F/K: — (hesaplanamadı)" in metin
+
+
+def test_karsilastirma_hazir_yazilmis():
+    """8B model 'değer > medyan' çıkarımını kendisi yapmak zorunda kalmamalı."""
+    metin = LLM.bicimlendir(_sentetik_paket())
+    assert "medyanın üstünde" in metin or "medyanın altında" in metin
+
+
+def test_tablolar_dar():
+    """Hiçbir tablo 4 sütundan geniş olmamalı (geniş tabloda 8B satır kaydırıyor)."""
+    metin = LLM.bicimlendir(_sentetik_paket())
+    genis = [
+        satir for satir in metin.splitlines()
+        if satir.startswith("|") and satir.count("|") > 5
+    ]
+    assert not genis, f"4 sütundan geniş tablo satırı: {genis[:3]}"
 
 
 def test_ondalik_ayraci_turkce():
