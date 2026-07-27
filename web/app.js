@@ -1098,6 +1098,7 @@ EKRANLAR.karsilastir = async function (kap, sembol) {
     basarili.length ? karsBuyumeKartlari(basarili) : "",
     basarili.length ? karsMetrikTablosu(basarili) : "",
     basarili.length ? karsFskorMatrisi(basarili) : "",
+    basarili.length ? karsKaliteTrendi(basarili) : "",
   ].join("");
 
   kap.querySelectorAll("button[data-kaldir]").forEach((b) =>
@@ -1269,7 +1270,7 @@ function karsFskorMatrisi(basarili) {
       const [sinif, im] = (isaretler[k.status] || isaretler.eksik_veri)(k);
       return `<td class="isaret ${sinif}" style="text-align:center">${im}</td>`;
     });
-    return `<tr><td class="metin">${kacir(kriter.label)}</td>${hucreler.join("")}</tr>`;
+    return `<tr><td class="metin">${terim(kriter.id, kriter.label)}</td>${hucreler.join("")}</tr>`;
   }).join("");
 
   return `<section><div class="panel">
@@ -1281,6 +1282,42 @@ function karsFskorMatrisi(basarili) {
       </table></div>
       <div class="panel-dip"><p class="not">✓ geçti · ✗ kalmadı · ? veri yok · – bu sektörde tanımsız</p></div>
     </div></section>`;
+}
+
+/** Her şirketin kalite trendini (F-Skoru, marjlar, net borç/FAVÖK) yan yana
+ * çizer. Ek bir ağ isteği gerekmiyor — `/api/sirket` zaten çekilirken gelen
+ * `saglik` alanı `kalitePaneli()`'nin (tekil şirket ekranı) kullandığı aynı
+ * seriler; burada yalnızca daha dar bir genişlikte, kars-grid içinde çiziliyor. */
+function karsKaliteTrendi(basarili) {
+  const kartlar = basarili.map((s) => {
+    const st = s.veri.saglik;
+    const marjlar = (st.margins && st.margins.series) || {};
+    const cevir = (dizi) => (dizi || []).map(([tarih, deger]) => ({ tarih, deger }));
+
+    const cizim = seritGrafik([
+      {
+        ad: "F-Skoru", renk: "var(--vurgu)", bicim: (d) => `${d}/9`, aralikMetni: "0–9 arası",
+        noktalar: (st.fscore.usable_points || []).map((n) => ({ tarih: n.date, deger: n.score })),
+      },
+      { ad: "Faaliyet marjı", renk: "var(--kirmizi)", bicim: puan, noktalar: cevir(marjlar.operating) },
+      { ad: "Brüt marj", renk: "var(--yesil)", bicim: puan, noktalar: cevir(marjlar.gross) },
+      {
+        ad: "Net borç/FAVÖK", renk: "var(--sari)", bicim: (d) => TR(d, 2),
+        noktalar: (st.debt.history || []).map((r) => ({ tarih: r.date, deger: r.net_debt_ebitda })),
+      },
+    ], 360);
+
+    return `<div class="panel">
+        <div class="panel-bas">${kacir(s.symbol)} <small>kalite trendi</small></div>
+        <div class="panel-ic">${cizim || `<p class="not">Yeterli geçmiş dönem yok.</p>`}</div>
+      </div>`;
+  });
+
+  return `<section>
+      <div class="kars-grid">${kartlar.join("")}</div>
+      <p class="not" style="margin-top:8px">Her seri kendi ölçeğinde, ortak zaman ekseninde —
+        bkz. tekil şirket ekranındaki kalite trendi paneli.</p>
+    </section>`;
 }
 
 /* ═══════════════════════════════════════════════════════ RAPOR OKUYUCU */
