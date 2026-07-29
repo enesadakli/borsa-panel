@@ -9,6 +9,10 @@ data/config.json
 data/portfolio.json
 data/rules.json
 
+# tools/run_canli_sinav.py'nin ürettiği prompt dosyaları ve elle alınmış
+# rapor çıktıları — tekrar üretilebilir, deneme artığı.
+sinav_prompt_*.txt
+
 # Python
 __pycache__/
 *.pyc

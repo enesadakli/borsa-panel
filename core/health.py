@@ -524,6 +524,17 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
              source("TotalAssets", date, assets)],
         )
 
+    revenue = values.get("TotalRevenue")
+    if fcf is None or not revenue:
+        fcf_margin = metric(None, EKSIK, "Serbest nakit akışı veya gelir yok")
+    else:
+        margin = fcf / revenue
+        fcf_margin = metric(
+            margin, OK,
+            f"FCF Marjı {B.yuzde(margin, 2)} (serbest nakit akışı / gelir)",
+            [source("FreeCashFlow", date, fcf), source("TotalRevenue", date, revenue)],
+        )
+
     if ni is None or fcf is None or ni == 0:
         gap = metric(None, EKSIK, "Net kâr veya serbest nakit akışı yok")
     else:
@@ -537,6 +548,25 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
             net_income=ni, free_cash_flow=fcf,
         )
 
+    div = values.get("CashDividendsPaid")
+    if fcf is None or div is None:
+        payout = metric(None, EKSIK, "Serbest nakit akışı veya temettü ödemesi verisi yok")
+    else:
+        div_paid = abs(div)
+        if fcf > 0:
+            payout_ratio = div_paid / fcf
+            payout = metric(
+                payout_ratio, OK,
+                f"FCF Payout Oranı {B.yuzde(payout_ratio, 2)} (ödenen temettü / serbest nakit akışı)",
+                [source("CashDividendsPaid", date, div), source("FreeCashFlow", date, fcf)],
+            )
+        else:
+            payout = metric(
+                None, EKSIK,
+                "Serbest nakit akışı negatif olduğu için payout oranı tanımsız",
+                [source("FreeCashFlow", date, fcf)],
+            )
+
     history = []
     for row in rows:
         history.append(
@@ -545,10 +575,11 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
                 "net_income": row["values"].get("NetIncome"),
                 "operating_cash_flow": row["values"].get("OperatingCashFlow"),
                 "free_cash_flow": row["values"].get("FreeCashFlow"),
+                "cash_dividends_paid": row["values"].get("CashDividendsPaid"),
             }
         )
 
-    return {"accrual_ratio": accrual, "fcf_gap": gap, "history": history}
+    return {"accrual_ratio": accrual, "fcf_gap": gap, "fcf_margin": fcf_margin, "fcf_payout": payout, "history": history}
 
 
 # ================================================================ borç yapısı
@@ -651,6 +682,29 @@ def debt_profile(pack: dict, bank: bool) -> dict:
         "Özsermaye negatif" if (equity["value"] or 0) < 0 else "Özsermaye pozitif",
         [source("StockholdersEquity", equity["end"], equity["value"])],
     )
+
+    if bank or len(rows) < 2:
+        out["nwc_change"] = metric(None, GECERSIZ if bank else EKSIK, "NWC analizi yapılamıyor")
+    else:
+        now = rows[-1]["values"]
+        prev = rows[-2]["values"]
+        ca_now, cl_now = now.get("CurrentAssets"), now.get("CurrentLiabilities")
+        ca_prev, cl_prev = prev.get("CurrentAssets"), prev.get("CurrentLiabilities")
+        
+        if ca_now is not None and cl_now is not None and ca_prev is not None and cl_prev is not None:
+            nwc_now = ca_now - cl_now
+            nwc_prev = ca_prev - cl_prev
+            if nwc_prev == 0:
+                out["nwc_change"] = metric(None, EKSIK, "Önceki dönem işletme sermayesi sıfır")
+            else:
+                change = (nwc_now - nwc_prev) / abs(nwc_prev)
+                out["nwc_change"] = metric(
+                    change, OK,
+                    f"İşletme sermayesi ihtiyacı değişimi: {B.yuzde(change, 1, isaretli=True)}",
+                    [source("CurrentAssets", rows[-1]["date"], ca_now), source("CurrentLiabilities", rows[-1]["date"], cl_now)],
+                )
+        else:
+            out["nwc_change"] = metric(None, EKSIK, "Cari varlık/yükümlülük verisi eksik")
 
     out["history"] = [
         {

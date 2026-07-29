@@ -124,7 +124,7 @@ def admin_dogrula(headers) -> None:
 
 
 # Anahtar yapılandırıldığında admin_dogrula'dan geçmesi gereken uçlar.
-KORUNAN_UCLAR = {"/api/llm-rapor"}
+KORUNAN_UCLAR = {"/api/llm-rapor", "/api/llm-karsilastir"}
 
 
 class _TaramaIptalEdildi(Exception):
@@ -297,6 +297,26 @@ def uc_llm_rapor(params: dict) -> MetinYanit:
                 f"Geçerli bölümler: {', '.join(LLM.BOLUM_ADLARI)}"
             )
     return MetinYanit(LLM.olustur(_client, symbol, bolumler))
+
+
+def uc_llm_karsilastir(params: dict) -> MetinYanit:
+    """İki şirketi karşılaştıran LLM raporu. ?s1=SISE.IS&s2=TRKCM.IS"""
+    s1 = (params.get("s1") or [""])[0].strip().upper()
+    s2 = (params.get("s2") or [""])[0].strip().upper()
+    if not s1 or not s2:
+        raise ApiError("'s1' ve 's2' parametreleri gerekli")
+    
+    ham = (params.get("bolum") or [""])[0].strip()
+    bolumler = None
+    if ham:
+        bolumler = [b.strip() for b in ham.split(",") if b.strip()]
+        bilinmeyen = [b for b in bolumler if b not in LLM.BOLUM_ADLARI]
+        if bilinmeyen:
+            raise ApiError(
+                f"bilinmeyen bölüm: {', '.join(bilinmeyen)}. "
+                f"Geçerli bölümler: {', '.join(LLM.BOLUM_ADLARI)}"
+            )
+    return MetinYanit(LLM.karsilastir(_client, s1, s2, bolumler))
 
 
 def uc_tarama_baslat(params: dict, body: dict | None = None) -> dict:
@@ -552,6 +572,7 @@ GET_UCLARI = {
     "/api/tarama/durum": uc_tarama_durum,
     "/api/sozluk": uc_sozluk,
     "/api/llm-rapor": uc_llm_rapor,
+    "/api/llm-karsilastir": uc_llm_karsilastir,
 }
 
 POST_UCLARI = {

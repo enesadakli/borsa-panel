@@ -93,6 +93,85 @@ def olustur(client, symbol: str, bolumler=None) -> str:
     return bicimlendir(paket, bolumler)
 
 
+#: Farkı `B.sayi` ile basılacak metrikler (kat/skor cinsi, yüzde değil).
+_FARK_SAYI = {"fscore": 1, "altman_z": 1, "net_debt_ebitda": 2,
+              "debt_to_equity": 2, "interest_coverage": 2, "pe": 2, "pb": 2}
+#: Değeri **zaten puan ölçeğinde** tutulan metrikler. `context.extract_metrics`
+#: marj serisini `×100` yaparak alır; farkına `B.yuzde` uygulanırsa 100 kat
+#: şişer ("%+4,6" yerine "%+460,0"). Bunlar `B.puan`tan geçer.
+_FARK_PUAN = {"gross_margin", "operating_margin", "net_margin"}
+
+
+def _fark(metrik: str, v1, v2) -> str:
+    """İki değerin farkı, metriğin kendi ölçeğinde."""
+    if v1 is None or v2 is None:
+        return "—"
+    diff = v1 - v2
+    if metrik in _FARK_SAYI:
+        return B.sayi(diff, _FARK_SAYI[metrik], isaretli=True)
+    if metrik in _FARK_PUAN:
+        return B.puan(diff, 1, isaretli=True) + " puan"
+    return B.yuzde(diff, 1, isaretli=True) + " puan"
+
+
+def kiyaslama_matrisi(s1: str, s2: str, degerler1: dict, degerler2: dict) -> list[str]:
+    """İki metrik sözlüğünü yan yana koyan tablo. Saf — ağ çağrısı yapmaz."""
+    out = ["## Kıyaslama Matrisi", ""]
+    out.append(f"| Metrik | {s1} | {s2} | Fark ({s1} - {s2}) |")
+    out.append("|---|---|---|---|")
+    for metrik, etiket in C.METRIKLER:
+        v1 = degerler1.get(metrik)
+        v2 = degerler2.get(metrik)
+        if v1 is None and v2 is None:
+            continue
+        out.append(
+            f"| {etiket} | {_metrik_deger(metrik, v1)} | {_metrik_deger(metrik, v2)} "
+            f"| {_fark(metrik, v1, v2)} |"
+        )
+    out.append("")
+    return out
+
+
+def _metrik_degerleri(client, symbol: str) -> dict:
+    """Tek sembolün 16 metriğinin ham değerleri."""
+    profile = client.profile(symbol)
+    pack = F.load(client, symbol, profile)
+    cpi = INF.series_for_pack(client.cache, pack)
+    analysis = H.analyze(client, symbol, pack, cpi)
+    return C.extract_metrics(analysis, profile).get("values") or {}
+
+
+def karsilastir(client, s1: str, s2: str, bolumler=None) -> str:
+    """İki şirketin tam raporu + doğrudan kıyaslama matrisi.
+
+    Not: `olustur()` analizi zaten yapıyor, `_metrik_degerleri()` ikinci kez
+    yapıyor. Önbellek ağ trafiğini kurtarıyor ama hesap iki kez dönüyor;
+    `olustur()` paketi de döndürecek şekilde ayrılırsa bu tekrar kalkar.
+    """
+    out = [
+        f"# {s1} ve {s2} Karşılaştırması",
+        "",
+        "Bu rapor iki şirketin bireysel analizlerini ve ardından doğrudan "
+        "kıyaslama matrisini içerir.",
+        "",
+        "---",
+        "",
+        olustur(client, s1, bolumler).strip(),
+        "",
+        "---",
+        "",
+        olustur(client, s2, bolumler).strip(),
+        "",
+        "---",
+        "",
+    ]
+    out.extend(kiyaslama_matrisi(
+        s1, s2, _metrik_degerleri(client, s1), _metrik_degerleri(client, s2)
+    ))
+    out.append(f"> {UYARI}")
+    return "\n".join(out)
+
+
 def _fiyat_paketi(client, symbol: str, cpi: dict, profile: dict) -> dict:
     """Fiyat istatistiği + reel karşılığı.
 
@@ -225,6 +304,61 @@ def _tarihce(basliklar: list[str], satirlar: list[list[str]]) -> list[str]:
 # ------------------------------------------------------------------- bölümler
 
 
+#: Brüt marj bu eşiğin üstünde, faaliyet marjı alttakinin altındaysa aradaki
+#: fark gider tarafında eriyor demektir (puan cinsinden, marj serisiyle aynı ölçek).
+CAPRAZ_BRUT_ESIGI = 20.0
+CAPRAZ_FAALIYET_ESIGI = 5.0
+#: Net kâr bundan hızlı büyürken serbest nakit akışı negatifse büyüme nakde dönmüyor.
+CAPRAZ_KAR_BUYUME_ESIGI = 0.10
+
+
+def _marj_seviyesi(marjlar: dict, ad: str):
+    """Son dönemin marj **seviyesi** (puan cinsinden), yoksa None.
+
+    `*_trend` düğümünün `value` alanı marj değil, `health._slope()`'tan gelen
+    **eğimdir** (yılda kaç puan değişim). Seviye yalnızca `series`te durur;
+    ikisini karıştırmak sessiz ve tespiti zor bir hata üretir.
+    """
+    noktalar = (marjlar.get("series") or {}).get(ad) or []
+    return noktalar[-1][1] if noktalar else None
+
+
+def _capraz_inceleme(paket: dict) -> list[str]:
+    """Tek başına bakıldığında normal, birlikte bakıldığında anlam değiştiren
+    metrik çiftleri. Yorum değil, iki rakamın aynı cümlede durması."""
+    out = []
+
+    marjlar = paket.get("marjlar") or {}
+    brut = _marj_seviyesi(marjlar, "gross")
+    faaliyet = _marj_seviyesi(marjlar, "operating")
+    if (brut is not None and faaliyet is not None
+            and brut > CAPRAZ_BRUT_ESIGI and faaliyet < CAPRAZ_FAALIYET_ESIGI):
+        out.append(
+            f"- Operasyonel baskı: brüt marj {B.puan(brut, 1)}, buna karşılık "
+            f"faaliyet marjı {B.puan(faaliyet, 1)}. Brüt kârla faaliyet kârı "
+            f"arasındaki fark faaliyet giderlerinde eriyor."
+        )
+
+    rapor = (paket.get("rapor") or {}).get("annual") or {}
+    satirlar = rapor.get("lines") or []
+    kar_satiri = next((s for s in satirlar if s.get("key") == "NetIncome"), None)
+    kar_buyume = (kar_satiri.get("yoy") or {}).get("pct") if kar_satiri else None
+    gecmis = (paket.get("kar_kalitesi") or {}).get("history") or []
+    fcf = gecmis[-1].get("free_cash_flow") if gecmis else None
+
+    if (kar_buyume is not None and fcf is not None
+            and kar_buyume > CAPRAZ_KAR_BUYUME_ESIGI and fcf < 0):
+        out.append(
+            f"- Nakit kalitesi çelişkisi: net kâr yıllık {B.yuzde(kar_buyume)} "
+            f"artarken son dönem serbest nakit akışı negatif ({B.para(fcf)}). "
+            f"Büyüyen kâr aynı dönemde nakde dönmemiş."
+        )
+
+    if not out:
+        return []
+    return ["## Çapraz İnceleme Notları", ""] + out + [""]
+
+
 def _kimlik(paket: dict, p: dict) -> list[str]:
     out = ["## Kimlik", ""]
     out.append(f"- Piyasa: {paket.get('market') or '—'}")
@@ -305,7 +439,23 @@ def _fskoru(paket: dict) -> list[str]:
     if not son:
         return []
     out = ["## Piotroski F-Skoru", ""]
-    out.append(f"- Skor: {son['score']}/9 ({son.get('date') or '—'}) — {son.get('label') or ''}".rstrip())
+    taban = f"{son['score']}/9"
+    etiket = son.get("label") or ""
+    ek = etiket[len(taban):].strip() if etiket.startswith(taban) else etiket
+    satir = f"- Skor: {taban} ({son.get('date') or '—'})"
+    
+    metrikler = paket.get("metrikler") or []
+    f_metrik = next((m for m in metrikler if m.get("metric") == "fscore"), None)
+    if f_metrik and f_metrik.get("sector_median") is not None:
+        medyan = f_metrik.get("sector_median")
+        yuzdelik = f_metrik.get("sector_percentile")
+        konum = _konum(son["score"], medyan)
+        dilim = f", sektörün %{round(yuzdelik)}'lik diliminde" if yuzdelik is not None else ""
+        satir += f" — sektör medyanı {B.sayi(medyan, 0)}/9 (n={f_metrik.get('sector_n', 0)}){dilim} ({konum})"
+
+    if ek:
+        satir += f" {ek}"
+    out.append(satir)
     if fscore.get("model_note"):
         out.append(f"- Model notu: {fscore['model_note']}")
     out.append("")
@@ -550,6 +700,18 @@ def _karlilik(paket: dict) -> list[str]:
     tarihler = [tarih for tarih, _ in (seri.get("operating") or seri.get("net") or [])]
     if tarihler:
         sozluk = {ad: dict(seri.get(ad) or []) for ad in ("gross", "operating", "net")}
+        
+        if len(tarihler) >= 2:
+            ilk_tarih = tarihler[0]
+            son_tarih = tarihler[-1]
+            ilk_yil = ilk_tarih[:4]
+            son_yil = son_tarih[:4]
+            ilk_marj = sozluk["operating"].get(ilk_tarih)
+            son_marj = sozluk["operating"].get(son_tarih)
+            if ilk_marj is not None and son_marj is not None:
+                out.append(f"- Faaliyet Marjı Tarihçesi: {ilk_yil}: {B.puan(ilk_marj, 1)} -> {son_yil}: {B.puan(son_marj, 1)}")
+                out.append("")
+
         out.extend(_tarihce(
             ["Dönem", "Brüt marj", "Faaliyet marjı", "Net marj"],
             [[tarih,
@@ -578,17 +740,30 @@ def _borc(paket: dict) -> list[str]:
 
     gecmis = b.get("history") or []
     if gecmis:
+        # Tablo öncesi kısa özet (Trend cümlesi)
+        gecerli_oranlar = [r for r in gecmis if r.get("net_debt_ebitda") is not None]
+        if len(gecerli_oranlar) >= 2:
+            ilk = gecerli_oranlar[0]
+            son = gecerli_oranlar[-1]
+            ilk_yil = ilk.get("date", "")[:4]
+            son_yil = son.get("date", "")[:4]
+            ilk_oran = B.oran(ilk["net_debt_ebitda"], 2)
+            son_oran = B.oran(son["net_debt_ebitda"], 2)
+            out.append(f"- Net Borç/FAVÖK Tarihçesi: {ilk_yil}: {ilk_oran} -> {son_yil}: {son_oran}")
+            out.append("")
+
         out.extend(_tarihce(
             ["Dönem", "Net borç", "FAVÖK", "Net borç/FAVÖK"],
             [[r.get("date") or "—", B.para(r.get("net_debt")), B.para(r.get("ebitda")),
               B.oran(r["net_debt_ebitda"], 2) if r.get("net_debt_ebitda") is not None else "—"]
              for r in gecmis],
         ))
-        out.append("")
-        out.append(
-            "Boş bir oran hücresi, FAVÖK'ün şirket ölçeğine göre sıfıra yaklaştığı "
-            "ve oranın anlam taşımadığı dönemi gösterir."
-        )
+        if any(r.get("net_debt_ebitda") is None for r in gecmis):
+            out.append("")
+            out.append(
+                "Boş bir oran hücresi, FAVÖK'ün şirket ölçeğine göre sıfıra yaklaştığı "
+                "ve oranın anlam taşımadığı dönemi gösterir."
+            )
     out.append("")
     return out
 
@@ -928,6 +1103,7 @@ BOLUMLER = (
     ("kimlik", _kimlik),
     ("tazelik", _tazelik),
     ("anlati", _ozet),
+    ("capraz", _capraz_inceleme),
     ("bayraklar", _bayraklar),
     ("metrikler", _metrikler),
     ("fskor", _fskoru),

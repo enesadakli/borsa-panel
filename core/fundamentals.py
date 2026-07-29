@@ -46,6 +46,7 @@ AKIS_KALEMLERI = frozenset(
         "OperatingCashFlow",
         "FreeCashFlow",
         "CapitalExpenditure",
+        "CashDividendsPaid",
         "BasicEPS",
         "DilutedEPS",
     }

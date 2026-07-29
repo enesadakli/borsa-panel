@@ -212,6 +212,82 @@ def _sentetik_paket() -> dict:
     }
 
 
+# Kıyaslama matrisi fikstürü. Marjlar **puan** ölçeğinde (22,6 = %22,6),
+# ROE/reel büyüme **kesir** ölçeğinde (0,039 = %3,9) — ikisinin farkı farklı
+# biçimlendiriciden geçmeli, `test_karsilastirma_marj_farki_puan_olceginde`
+# tam olarak bunu kilitliyor.
+_METRIK_A = {
+    "fscore": 7, "altman_z": 1.67, "roe": 0.039,
+    "gross_margin": 22.6, "operating_margin": 8.2, "net_margin": 2.7,
+    "net_debt_ebitda": 2.2, "real_revenue_growth": -0.315,
+}
+_METRIK_B = {
+    "fscore": 5, "altman_z": 2.90, "roe": 0.061,
+    "gross_margin": 18.0, "operating_margin": 4.0, "net_margin": 1.5,
+    "net_debt_ebitda": 1.1, "real_revenue_growth": -0.120,
+}
+
+
+def test_karsilastirma_marj_farki_puan_olceginde():
+    """Marj farkı 100 kat şişmemeli.
+
+    `context.extract_metrics` marj serisini `×100` yaparak alır, yani değer
+    zaten puan cinsindedir. Farkına `B.yuzde` uygulanırsa 22,6 − 18,0 = 4,6
+    puanlık gerçek fark "%+460,0" diye basılıyordu.
+    """
+    satirlar = LLM.kiyaslama_matrisi("A.IS", "B.IS", _METRIK_A, _METRIK_B)
+    metin = "\n".join(satirlar)
+    assert "%+4,6 puan" in metin, "brüt marj farkı puan ölçeğinde olmalı"
+    assert "460" not in metin, "marj farkı 100 katına çıkmış"
+    # Kesir ölçekli metrikler yüzdeye çevrilmeye devam etmeli: 0,039 − 0,061
+    assert "%-2,2 puan" in metin, "ROE farkı kesirden yüzdeye çevrilmeli"
+
+
+def test_karsilastirma_tek_tarafli_metrigi_atlamiyor():
+    """Bir tarafta değer varsa satır basılmalı, fark sütunu `—` olmalı."""
+    satirlar = LLM.kiyaslama_matrisi("A.IS", "B.IS", {"pe": 8.4}, {})
+    metin = "\n".join(satirlar)
+    assert "F/K" in metin and "—" in metin
+
+
+def test_capraz_inceleme_marj_seviyesini_okuyor():
+    """Kural marj **seviyesini** okumalı, trend eğimini değil.
+
+    `marjlar["*_trend"]["value"]` alanı `health._slope()` çıktısıdır (yılda
+    kaç puan değişim); marj seviyesi yalnızca `series`te durur. Eğim okununca
+    kural pratikte hiç tetiklenmiyordu.
+    """
+    paket = {"marjlar": {
+        "series": {"gross": [("2025-12-31", 27.6)], "operating": [("2025-12-31", 0.0)]},
+        # Eğim değerleri kasıtlı olarak eşiği geçecek şekilde yanıltıcı:
+        # kural bunları okursa test düşer.
+        "gross_trend": {"value": 99.0, "status": "ok"},
+        "operating_trend": {"value": -4.8, "status": "ok"},
+    }}
+    metin = "\n".join(LLM._capraz_inceleme(paket))
+    assert "## Çapraz İnceleme Notları" in metin
+    assert "%27,6" in metin and "%0,0" in metin, "marj seviyeleri basılmalı"
+    assert "99" not in metin, "eğim değeri marj sanılmış"
+
+
+def test_capraz_inceleme_nakit_celiskisi():
+    """Kâr büyürken serbest nakit akışı negatifse not düşülmeli."""
+    paket = {
+        "rapor": {"annual": {"lines": [{"key": "NetIncome", "yoy": {"pct": 0.42}}]}},
+        "kar_kalitesi": {"history": [{"free_cash_flow": -1_200_000_000}]},
+    }
+    metin = "\n".join(LLM._capraz_inceleme(paket))
+    assert "Nakit kalitesi çelişkisi" in metin
+    assert "%+42,0" in metin
+
+
+def test_capraz_inceleme_kural_yoksa_bolum_yok():
+    """Hiçbir kural tetiklenmezse başlık da basılmamalı (boş bölüm olmasın)."""
+    paket = {"marjlar": {"series": {"gross": [("2025-12-31", 30.0)],
+                                    "operating": [("2025-12-31", 25.0)]}}}
+    assert LLM._capraz_inceleme(paket) == []
+
+
 def test_tum_bolumler_fikstur_tarafindan_tetikleniyor():
     """Kaynaktaki her `## ` başlığı fikstürle üretilebilmeli.
 
@@ -222,13 +298,20 @@ def test_tum_bolumler_fikstur_tarafindan_tetikleniyor():
     fikstüre girene kadar süit kırmızı yanıyor.
 
     Şart: başlıklar düz string sabiti olmalı, f-string olursa regex görmez.
+
+    Modülün iki ayrı üretim yüzeyi var — `bicimlendir()` (tek şirket) ve
+    `kiyaslama_matrisi()` (iki şirket). Başlık ikisinden birinde çıkıyorsa
+    yeterli; yoksa `## Kıyaslama Matrisi` hiçbir zaman tetiklenemezdi.
     """
     kaynak = inspect.getsource(LLM)
     basliklar = set(re.findall(r'"(## [^"]+)"', kaynak))
     assert basliklar, "kaynakta hiç bölüm başlığı bulunamadı — regex bozulmuş olabilir"
 
-    metin = LLM.bicimlendir(_sentetik_paket())
-    eksik = sorted(b for b in basliklar if b not in metin)
+    uretilen = "\n".join([
+        LLM.bicimlendir(_sentetik_paket()),
+        "\n".join(LLM.kiyaslama_matrisi("A.IS", "B.IS", _METRIK_A, _METRIK_B)),
+    ])
+    eksik = sorted(b for b in basliklar if b not in uretilen)
     assert not eksik, f"fikstür şu bölümleri tetiklemiyor: {eksik}"
 
 

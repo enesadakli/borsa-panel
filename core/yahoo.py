@@ -115,6 +115,7 @@ CEYREKLIK_ALANLAR = (
     "FreeCashFlow",
     "CapitalExpenditure",
     "OrdinarySharesNumber",
+    "CashDividendsPaid",
 )
 
 PROFIL_MODULLERI = (
