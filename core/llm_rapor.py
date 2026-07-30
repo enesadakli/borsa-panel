@@ -100,6 +100,14 @@ _FARK_SAYI = {"fscore": 1, "altman_z": 1, "net_debt_ebitda": 2,
 #: marj serisini `×100` yaparak alır; farkına `B.yuzde` uygulanırsa 100 kat
 #: şişer ("%+4,6" yerine "%+460,0"). Bunlar `B.puan`tan geçer.
 _FARK_PUAN = {"gross_margin", "operating_margin", "net_margin"}
+#: Gerçekten kesir ölçeğinde kalan metrikler (0,039 = %3,9) — `B.yuzde` doğru
+#: dönüştürüyor. Bu üçüncü küme, `_FARK_SAYI`/`_FARK_PUAN` dışında kalan her
+#: metriğin **kontrol edilmeden** kesir sayılmasını (eski `else` dalı)
+#: engellemek için var: yarın puan ölçekli yeni bir metrik eklenirse ve
+#: buraya eklenmezse, aşağıdaki muhafız testi düşer — 100 kat hatası sessizce
+#: geri gelmez.
+_FARK_KESIR = {"roe", "roa", "fcf_gap", "real_revenue_growth",
+               "real_income_growth", "dividend_yield"}
 
 
 def _fark(metrik: str, v1, v2) -> str:
@@ -111,7 +119,13 @@ def _fark(metrik: str, v1, v2) -> str:
         return B.sayi(diff, _FARK_SAYI[metrik], isaretli=True)
     if metrik in _FARK_PUAN:
         return B.puan(diff, 1, isaretli=True) + " puan"
-    return B.yuzde(diff, 1, isaretli=True) + " puan"
+    if metrik in _FARK_KESIR:
+        return B.yuzde(diff, 1, isaretli=True) + " puan"
+    raise ValueError(
+        f"'{metrik}' hiçbir ölçek sınıfında değil (_FARK_SAYI/_FARK_PUAN/"
+        f"_FARK_KESIR). Sessizce B.yuzde'ye düşseydi puan ölçekli bir metrik "
+        f"100 kat hatalı basılabilirdi — önce doğru sınıfa eklenmeli."
+    )
 
 
 def kiyaslama_matrisi(s1: str, s2: str, degerler1: dict, degerler2: dict) -> list[str]:

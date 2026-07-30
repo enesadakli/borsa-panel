@@ -246,6 +246,49 @@ _METRIK_B = {
 }
 
 
+def test_fark_olcek_siniflari_metrikleri_eksiksiz_kapliyor():
+    """`_fark`'ın üç ölçek kümesi `C.METRIKLER`'i tam örtmeli — iki yönde de.
+
+    Bir metrik hiçbirinde yoksa `_fark` artık sessizce `B.yuzde`'ye düşmüyor,
+    `ValueError` fırlatıyor (aşağıdaki pozitif kontrol). Bu test ise
+    sürüklenmeyi commit zamanında yakalıyor: yeni metrik eklenip
+    sınıflanmazsa, ya da silinen metriğin sınıfı unutulup kalırsa düşer.
+    """
+    beklenen = {k for k, _ in C.METRIKLER}
+    siniflanan = set(LLM._FARK_SAYI) | LLM._FARK_PUAN | LLM._FARK_KESIR
+    assert beklenen == siniflanan, (
+        f"sınıflanmamış: {beklenen - siniflanan}; "
+        f"fazladan sınıflanmış: {siniflanan - beklenen}"
+    )
+
+
+def test_fark_siniflanmamis_metrikte_sessizce_gecmiyor():
+    """Pozitif kontrol: sınıflanmamış metrik `ValueError` ile durmalı.
+
+    Geçmişte tam bu sessiz düşüş (`else: B.yuzde`) marj farkını 100 kat
+    şişirmişti (bkz. `test_karsilastirma_marj_farki_puan_olceginde`).
+    """
+    try:
+        LLM._fark("uydurma_metrik_boyle_biri_yok", 1.0, 2.0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("sınıflanmamış metrik sessizce kabul edildi")
+
+
+def test_metrik_bicim_metrikleri_eksiksiz_kapliyor():
+    """`_METRIK_BICIM` de `C.METRIKLER`'i tam örtmeli.
+
+    Bugün tam (16/16) ama onu orada tutan hiçbir mekanizma yoktu; bu test
+    o örtüşmeyi kalıcı hâle getiriyor.
+    """
+    beklenen = {k for k, _ in C.METRIKLER}
+    assert beklenen == set(LLM._METRIK_BICIM), (
+        f"eksik: {beklenen - set(LLM._METRIK_BICIM)}; "
+        f"fazla: {set(LLM._METRIK_BICIM) - beklenen}"
+    )
+
+
 def test_karsilastirma_marj_farki_puan_olceginde():
     """Marj farkı 100 kat şişmemeli.
 
