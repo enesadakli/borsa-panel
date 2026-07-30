@@ -541,7 +541,7 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
         ratio = (ni - cfo) / assets
         accrual = metric(
             ratio, OK,
-            f"Tahakkuk oranı {B.yuzde(ratio, 2)} (net kâr − faaliyet nakit akışı) / varlık",
+            f"{B.yuzde(ratio, 2)} (net kâr − faaliyet nakit akışı) / varlık",
             [source("NetIncome", date, ni), source("OperatingCashFlow", date, cfo),
              source("TotalAssets", date, assets)],
         )
@@ -634,7 +634,7 @@ def debt_profile(pack: dict, bank: bool) -> dict:
     else:
         ratio = total_debt["value"] / equity["value"]
         out["debt_to_equity"] = metric(
-            ratio, OK, f"Borç/özsermaye = {B.oran(ratio)}",
+            ratio, OK, B.oran(ratio),
             [source("TotalDebt", total_debt["end"], total_debt["value"]),
              source("StockholdersEquity", equity["end"], equity["value"])],
         )
@@ -662,7 +662,7 @@ def debt_profile(pack: dict, bank: bool) -> dict:
     else:
         ratio = net_debt["value"] / ebitda["value"]
         out["net_debt_ebitda"] = metric(
-            ratio, OK, f"Net borç/FAVÖK = {B.oran(ratio)} ({ebitda['basis']} FAVÖK)",
+            ratio, OK, f"{B.oran(ratio)} ({ebitda['basis']} FAVÖK)",
             [source("NetDebt", net_debt["end"], net_debt["value"]),
              source("EBITDA", ebitda["end"], ebitda["value"])],
         )
@@ -840,7 +840,7 @@ def return_profile(pack: dict) -> dict:
     else:
         value = net_income["value"] / equity["value"]
         out["roe"] = metric(
-            value, OK, f"ROE = {B.yuzde(value, 1, False)} ({net_income['basis']} kâr)",
+            value, OK, f"{B.yuzde(value, 1, False)} ({net_income['basis']} kâr)",
             [source("NetIncome", net_income["end"], net_income["value"]),
              source("StockholdersEquity", equity["end"], equity["value"])],
         )
@@ -850,7 +850,7 @@ def return_profile(pack: dict) -> dict:
     else:
         value = net_income["value"] / assets["value"]
         out["roa"] = metric(
-            value, OK, f"ROA = {B.yuzde(value, 1, False)}",
+            value, OK, B.yuzde(value, 1, False),
             [source("NetIncome", net_income["end"], net_income["value"]),
              source("TotalAssets", assets["end"], assets["value"])],
         )
@@ -963,7 +963,7 @@ def valuation(client, pack: dict) -> dict:
     else:
         value = market_cap / net_income["value"]
         out["pe"] = metric(
-            value, OK, f"F/K = {B.oran(value)} ({net_income['basis']} kâr tabanlı)",
+            value, OK, f"{B.oran(value)} ({net_income['basis']} kâr tabanlı)",
             [source("Piyasa değeri", None, market_cap),
              source("NetIncome", net_income["end"], net_income["value"])],
             basis=net_income["basis"],
@@ -975,7 +975,7 @@ def valuation(client, pack: dict) -> dict:
     else:
         value = market_cap / equity["value"]
         out["pb"] = metric(
-            value, OK, f"PD/DD = {B.oran(value)} ({equity['basis']} özsermaye tabanlı)",
+            value, OK, f"{B.oran(value)} ({equity['basis']} özsermaye tabanlı)",
             [source("Piyasa değeri", None, market_cap),
              source("StockholdersEquity", equity["end"], equity["value"])],
             basis=equity["basis"],

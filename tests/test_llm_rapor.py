@@ -103,16 +103,17 @@ def _sentetik_paket() -> dict:
             "components": {"X1": 0.12, "X2": 0.31, "X3": 0.04, "X4": 0.55, "X5": 0.43},
         },
         "degerleme": {
-            "pe": {"value": 12.7, "status": "ok", "detail": "F/K = 12,69", "sources": [],
-                   "basis": "TTM"},
-            "pb": {"value": 0.5, "status": "ok", "detail": "PD/DD = 0,50", "sources": []},
+            "pe": {"value": 12.7, "status": "ok", "detail": "12,69 (TTM kâr tabanlı)",
+                   "sources": [], "basis": "TTM"},
+            "pb": {"value": 0.5, "status": "ok", "detail": "0,50 (çeyrek özsermaye tabanlı)",
+                   "sources": [], "basis": "çeyrek"},
             "market_cap_statement_currency": 128_560_000_000, "currency": "TRY",
             "converted": False,
         },
         "getiriler": {
-            "roe": {"value": 0.039, "status": "ok", "detail": "ROE = %3,9 (TTM kâr)",
+            "roe": {"value": 0.039, "status": "ok", "detail": "%3,9 (TTM kâr)",
                     "sources": []},
-            "roa": {"value": 0.019, "status": "ok", "detail": "ROA = %1,9", "sources": []},
+            "roa": {"value": 0.019, "status": "ok", "detail": "%1,9", "sources": []},
         },
         "marjlar": {
             "series": {
@@ -126,9 +127,9 @@ def _sentetik_paket() -> dict:
         },
         "borc": {
             "debt_to_equity": {"value": 0.66, "status": "ok",
-                               "detail": "Borç/özsermaye = 0,66", "sources": []},
+                               "detail": "0,66", "sources": []},
             "net_debt_ebitda": {"value": 2.2, "status": "ok",
-                                "detail": "Net borç/FAVÖK = 2,20 (TTM FAVÖK)",
+                                "detail": "2,20 (TTM FAVÖK)",
                                 "sources": []},
             "nwc_change": {"value": -0.592, "status": "ok",
                            "detail": "Bir önceki yıla göre %-59,2 "
@@ -371,17 +372,45 @@ def test_nakit_metrikleri_raporda_gorunuyor():
         assert etiket in metin, f"{etiket} raporda yok"
 
 
-def test_metrik_satirlari_etiketi_tekrarlamiyor():
-    """`- Etiket: Etiket ...` biçiminde çift basım olmamalı.
+# `- Etiket: detay` satırlarını yakalayan tarama. `_metrik_node` bu kalıpla
+# basıyor; `health.py`'de canlı SISE.IS raporunda 7 satır kendi etiketini
+# tekrarladığı bulundu (ör. "- F/K: F/K = 12,20 ..."). Etiketin sonundaki
+# parantezli kısım atılıyor ("Tahakkuk oranı (Sloan)" → "Tahakkuk oranı")
+# çünkü detay metni parantezsiz köke bakıyor.
+_ETIKET_SATIRI = re.compile(r"^- ([^:\n]{2,60}): (.+)$", re.MULTILINE)
+_PARANTEZ_SONU = re.compile(r"^(.*?)\s*\([^()]*\)$")
 
-    `_metrik_node` satırı `- {etiket}: {detail}` diye kuruyor; detail metni
-    etiketle başlarsa etiket iki kez görünüyor. Yeni eklenen üç metrik bu
-    tuzağa düşmesin diye kilitleniyor.
+
+def _etiket_tekrarlari(metin: str) -> list[str]:
+    bulunanlar = []
+    for etiket, detay in _ETIKET_SATIRI.findall(metin):
+        eslesme = _PARANTEZ_SONU.match(etiket)
+        temel = eslesme.group(1).strip() if eslesme else etiket
+        if temel and detay.startswith(temel):
+            bulunanlar.append(f"- {etiket}: {detay}")
+    return bulunanlar
+
+
+def test_etiket_tekrari_taramasi_gercek_ihlali_yakaliyor():
+    """Pozitif kontrol: tarama gerçekten bir tekrarı fark ediyor mu?
+
+    Bu geçmezse asıl test hiçbir şeyi yakalamıyor olabilir, geçmesi güven
+    vermez (bkz. `test_bicim_lint.py:test_kalip_gercek_ihlali_yakaliyor`
+    ile aynı gerekçe).
     """
-    metin = LLM.bicimlendir(_sentetik_paket())
-    for etiket in ("FCF marjı", "Temettünün nakit karşılığı",
-                   "İşletme sermayesi değişimi"):
-        assert f"- {etiket}: {etiket}" not in metin, f"{etiket} iki kez basılmış"
+    sahte = "- F/K: F/K = 12,20 (TTM kâr tabanlı)\n- Özsermaye durumu: Özsermaye pozitif\n"
+    bulunan = _etiket_tekrarlari(sahte)
+    assert bulunan == ["- F/K: F/K = 12,20 (TTM kâr tabanlı)"], bulunan
+
+
+def test_metrik_satirlari_etiketi_tekrarlamiyor():
+    """Hiçbir bölüm kendi etiketini tekrarlamamalı — tam render ve her
+    `bolumler=[ad]` render'ı ayrı ayrı taranıyor, hiçbiri kaçmasın."""
+    paket = _sentetik_paket()
+    tekrarlar = _etiket_tekrarlari(LLM.bicimlendir(paket))
+    for ad in LLM.BOLUM_ADLARI:
+        tekrarlar.extend(_etiket_tekrarlari(LLM.bicimlendir(paket, bolumler=[ad])))
+    assert not tekrarlar, "Etiket tekrarı bulundu:\n" + "\n".join(sorted(set(tekrarlar)))
 
 
 def test_tum_bolumler_fikstur_tarafindan_tetikleniyor():
