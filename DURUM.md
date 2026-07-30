@@ -44,28 +44,39 @@ Bu dosya, projeye başka bir araçla (ör. Claude Code / Antigravity) devam edec
 - **Donanım:** RTX 4050 6GB VRAM, Ryzen 7 7735HS, 16GB RAM.
 - **LM Studio ayarı:** Context Length modeli yüklerken 8192 yapılmalı.
 
-### Canlı sınav durumu
+### Canlı sınav — GEÇTİ (2026-07-30)
 
 `tools/run_canli_sinav.py` bu testi otomatikleştiriyor (LM Studio yerel sunucusu
 açıksa API'den sorar, kapalıysa promptu `sinav_prompt_*.txt` olarak diske yazar).
 
-Şu ana kadarki bulgular:
+**Sonuç: her iki modda da 5/5 doğru.** Model: `mlabonne_qwen3-8b-abliterated@q4_k_m`.
 
-- Tam rapor (~15,5 KB) + 5 soru → **context length limit** ile kesildi.
-- `?bolum=` ile küçültülmüş rapor → context sorunu yok (`EOS token found`).
-- Ancak model 5 soruya numaralı cevap vermek yerine raporu yeniden özetledi.
-  Sebep: promptta rapor ile sorular arasında görev talimatı yoktu. Düzeltme
-  `run_canli_sinav.py`'deki `SYSTEM_PROMPT` + `RAPOR:` / `SORULAR:` ayrımı ile
-  yapıldı, **ama bu haliyle henüz tekrar denenmedi.**
+| Mod | Boyut | Sonuç |
+|---|---|---|
+| `--filtered` (ozet+bayraklar+fskor+borc+tazelik+metrikler) | ~6 KB | 5/5 |
+| tam rapor | ~16 KB | 5/5 |
 
-**Sıradaki adım:** `python tools/run_canli_sinav.py` çalıştırıp 5 sorunun
-cevabını `CEVAP_ANAHTARI` ile karşılaştırmak. 5/5 doğruysa plan doğrulanmış
-sayılır; yanlış cevap varsa ilgili bölümün biçimi sadeleştirilir.
+Böylece planın D4 maddesi (**raporu 11-13 KB'ye küçültme**) **gereksizleşti** —
+rapor 15,5 KB'de kalabilir. Önceki oturumdaki "context length limit reached"
+hatası raporun boyutundan değil, LM Studio'nun Context Length ayarının modeli
+yüklerken 8192'ye çekilmemiş olmasından kaynaklanıyormuş.
+
+Önceki oturumda modelin soruları cevaplamak yerine raporu özetlemesi de çözüldü:
+sebep promptta görev talimatı olmamasıydı; `SYSTEM_PROMPT` + `RAPOR:`/`SORULAR:`
+ayrımı bunu düzeltti.
+
+**Kalan tek gözlem (kod hatası değil, kullanım notu):** tam raporda model 3.
+soruya doğru cevap verdi ama gönüllü eklediği gerekçede "nominal büyüme %7,6"
+dedi — raporda yazan **%-7,6**, yani eksi işaretini düşürüp daralmayı büyüme
+sandı. Filtreli çalıştırmada bu hata yok. Uzun bağlamda model açıklama
+süslemeye başlıyor ve süslerken işaret hatası yapabiliyor; sorulan sayıları
+doğru veriyor ama "neden" cevaplarını rapordan teyit etmek gerekiyor.
 
 ## Sıradaki Adımlar (Gelecek Oturumlar)
 
-1. **Canlı sınavın tekrarı** (yukarıda) — F10'un asıl doğrulama adımı, hâlâ açık.
-2. **UX/UI İyileştirmeleri & Stitch Entegrasyonu:**
+F10'un asıl doğrulama adımı (canlı sınav) geçti; aşağıdakiler kalan işler.
+
+1. **UX/UI İyileştirmeleri & Stitch Entegrasyonu:**
    - Arayüzü modernleştirmek için Stitch MCP / Tailwind / Vanilla CSS tasarımlarının yapılması.
    - Karşılaştırma uç noktasının arayüzde görselleştirilmesi.
 3. **Genel Refactoring & Testler:**
