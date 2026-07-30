@@ -72,22 +72,25 @@ sandı. Filtreli çalıştırmada bu hata yok. Uzun bağlamda model açıklama
 süslemeye başlıyor ve süslerken işaret hatası yapabiliyor; sorulan sayıları
 doğru veriyor ama "neden" cevaplarını rapordan teyit etmek gerekiyor.
 
-## Bilinmesi gereken tuzak: önbellek anahtarı alan listesini içermiyor
+## Çözüldü: önbellek anahtarı artık istenen alan listesini biliyor (F11 Adım 5)
 
-`yahoo.py`'de `fundamentals()` önbellek anahtarı `{symbol}__{period_type}`.
-Yani `YILLIK_ALANLAR` / `CEYREKLIK_ALANLAR` listesine **yeni bir kalem
-eklendiğinde anahtar değişmiyor** ve eski kayıt (o kalem olmadan) TTL dolana
-kadar servis edilmeye devam ediyor. Yeni kalem "Yahoo vermiyor" gibi görünür,
-oysa istek hiç tazelenmemiştir.
+`yahoo.py`'de `fundamentals()` önbellek anahtarı hâlâ `{symbol}__{period_type}`,
+ama artık kayıt kendi içinde `istenen_alanlar` listesini de taşıyor ve isabet
+yalnızca bu liste `YILLIK_ALANLAR`/`CEYREKLIK_ALANLAR`'ın **üst kümesiyse**
+sayılıyor. Yeni bir kalem eklenince eski kayıtlar bu testten geçemez, sembol
+görüldükçe **tek seferlik, tembel** olarak yeniden çekilir — elle `ttl=0`
+verilmesine gerek kalmadı.
 
-Yeni kalem ekledikten sonra tek bir sembol için zorla tazele:
+`CashDividendsPaid` eklenirken bu mekanizma olmadığı için kalem 4 yıl boyunca
+"Yahoo vermiyor" gibi göründü (aslında hiç sorulmamıştı — bkz. yukarıdaki
+commit geçmişi). `tests/test_onbellek.py` bu davranışı sentetik olarak
+kilitliyor.
 
-```python
-YahooClient().fundamentals("SISE.IS", "annual", ttl=0)
-```
-
-`CashDividendsPaid` eklenirken tam olarak bu yaşandı. Kalıcı çözüm anahtara
-alan listesinin bir özetini (hash) katmak olurdu.
+Aynı sınıftan tuzak beş önbellek noktasında daha var (`profile`, `series`,
+`cpi`, `universe`, `context`) — bilerek F11 kapsamına alınmadı. `context`
+özellikle: onu geçersizleştirmek ~15 dakikalık tam evren taraması demek,
+metrikler hâlâ sık değişirken oraya kendi kendini iyileştiren bir anahtar
+koymak riskli olurdu.
 
 ## Sıradaki Adımlar (Gelecek Oturumlar)
 

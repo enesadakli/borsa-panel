@@ -431,22 +431,32 @@ class YahooClient:
         """Yıllık veya çeyreklik mali tabloları çeker.
 
         Dönüş:
-            {"symbol", "period_type",
+            {"symbol", "period_type", "istenen_alanlar",
              "fields": {"TotalRevenue": [{"date","value","currency","period"}...]}}
 
         Kalemler tarihe göre artan sırada gelir. Yahoo'nun döndürmediği kalem
         `fields` içinde hiç bulunmaz — çağıran taraf eksikliği bundan anlar ve
         sıfır saymaz.
+
+        `istenen_alanlar`, önbellek anahtarının taşımadığı bilgiyi kayda
+        gömer: `YILLIK_ALANLAR`/`CEYREKLIK_ALANLAR`'a yeni bir kalem
+        eklendiğinde eski kayıtlar bunu içermez, üst küme testinden geçemez
+        ve sembol görüldükçe tek seferlik yeniden çekilir.
         """
         if period_type not in ("annual", "quarterly"):
             raise ValueError("period_type 'annual' veya 'quarterly' olmalı")
 
+        # `names` önbellek kontrolünden ÖNCE okunur: anahtar (satır altında)
+        # istenen alanları içermiyor, o yüzden YILLIK_ALANLAR/CEYREKLIK_ALANLAR
+        # tuple'ına yeni kalem eklendiğinde eski kayıt görünmez şekilde eksik
+        # kalabilirdi. `istenen_alanlar` üst kümesi bunu tembel şekilde
+        # kendiliğinden düzeltir (bkz. DURUM.md).
+        names = YILLIK_ALANLAR if period_type == "annual" else CEYREKLIK_ALANLAR
         cache_key = f"{symbol}__{period_type}"
         cached = self.cache.get_record("fundamentals", cache_key, ttl=ttl)
-        if cached is not None:
+        if cached is not None and set(cached.get("istenen_alanlar") or ()) >= set(names):
             return cached
 
-        names = YILLIK_ALANLAR if period_type == "annual" else CEYREKLIK_ALANLAR
         types = ",".join(period_type + name for name in names)
         query = urllib.parse.urlencode(
             {
@@ -487,7 +497,8 @@ class YahooClient:
                 points.sort(key=lambda item: item["date"] or "")
                 fields[clean_name] = points
 
-        table = {"symbol": symbol, "period_type": period_type, "fields": fields}
+        table = {"symbol": symbol, "period_type": period_type,
+                  "istenen_alanlar": sorted(names), "fields": fields}
         self.cache.set_record("fundamentals", cache_key, table)
         return table
 
