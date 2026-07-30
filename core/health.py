@@ -499,12 +499,17 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
             "Banka nakit akışı mevduat/kredi hareketiyle belirlenir; "
             "kâr kalitesi ölçüsü olarak kullanılamaz",
         )
-        return {"accrual_ratio": gecersiz, "fcf_gap": gecersiz, "history": []}
+        # Dört metrik de dönmeli. Anahtarı hiç döndürmemek, metriği "banka için
+        # geçersiz" diye işaretlemek yerine sessizce yok ediyordu; okuyucu
+        # ölçülüp ölçülmediğini ayırt edemiyor (bkz. "eksik veri sıfır sayılmaz").
+        return {"accrual_ratio": gecersiz, "fcf_gap": gecersiz,
+                "fcf_margin": gecersiz, "fcf_payout": gecersiz, "history": []}
 
     rows = F.rows(pack, "annual")
     if not rows:
-        return {"accrual_ratio": metric(None, EKSIK, "Yıllık tablo yok"),
-                "fcf_gap": metric(None, EKSIK, "Yıllık tablo yok"), "history": []}
+        yok = metric(None, EKSIK, "Yıllık tablo yok")
+        return {"accrual_ratio": yok, "fcf_gap": yok,
+                "fcf_margin": yok, "fcf_payout": yok, "history": []}
 
     date = rows[-1]["date"]
     values = rows[-1]["values"]

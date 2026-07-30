@@ -80,8 +80,14 @@ F10'un asıl doğrulama adımı (canlı sınav) geçti; aşağıdakiler kalan i�
    - Arayüzü modernleştirmek için Stitch MCP / Tailwind / Vanilla CSS tasarımlarının yapılması.
    - Karşılaştırma uç noktasının arayüzde görselleştirilmesi.
 3. **Genel Refactoring & Testler:**
-   - `nwc_change`, `fcf_margin`, `fcf_payout` için `tests/` altına birim test
-     eklenmesi (bunların hiçbiri şu an test edilmiyor).
+   - **`nwc_change`, `fcf_margin`, `fcf_payout` hâlâ hiçbir yerde
+     gösterilmiyor.** Testleri yazıldı (`tests/test_nakit_metrikleri.py`, 21
+     test) ve hesapları doğru, ama `llm_rapor.py` de `web/app.js` de bu üç
+     metriği okumuyor — şu an ölü kod. Rapora eklenecekse `_kar_kalitesi` ve
+     `_borc` bölümlerine birer `_metrik_node` satırı yetiyor.
+   - `fcf_margin` bir **seviye** ama `B.yuzde` ile basıldığı için işaretli
+     çıkıyor ("FCF Marjı %+16,00"). Diğer marjlar `B.puan`tan geçiyor
+     ("Brüt marj %22,6"). Rapora eklenmeden önce bu tutarsızlık giderilmeli.
    - `karsilastir` analizi iki kez yapıyor: `olustur()` zaten `H.analyze`
      çağırıyor, `_metrik_degerleri()` aynı işi tekrarlıyor. Önbellek ağ
      trafiğini kurtarıyor ama hesap boşa dönüyor; `olustur()` paketi de

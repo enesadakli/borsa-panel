@@ -7,6 +7,7 @@ Kullanım:
 
 from __future__ import annotations
 
+import glob
 import importlib
 import os
 import sys
@@ -14,11 +15,20 @@ import time
 import traceback
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BURASI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, KOK)
 
-MODULLER = ("test_dil", "test_fskor", "test_reel", "test_portfoy", "test_tarayici",
-            "test_anlati", "test_tazelik", "test_bicim_lint", "test_sozluk",
-            "test_llm_rapor")
+
+def modulleri_bul() -> list[str]:
+    """`tests/test_*.py` dosyalarını diskten keşfeder.
+
+    Elle tutulan bir liste, yeni test dosyası eklenip listeye yazılmayınca
+    dosyayı **sessizce** koşum dışı bırakıyordu — testin varlığı yanlış bir
+    güvence veriyor, oysa hiç çalışmıyor. test_dil ve test_bicim_lint'in
+    dosya keşfiyle aynı yaklaşım: kaynak diskte, liste değil.
+    """
+    yollar = glob.glob(os.path.join(BURASI, "test_*.py"))
+    return sorted(os.path.splitext(os.path.basename(yol))[0] for yol in yollar)
 
 
 def main(argv: list[str]) -> int:
@@ -29,7 +39,7 @@ def main(argv: list[str]) -> int:
     gecen = dusen = atlanan = 0
     basladi = time.monotonic()
 
-    for modul_adi in MODULLER:
+    for modul_adi in modulleri_bul():
         if secim and not any(parca in modul_adi for parca in secim):
             continue
         try:
