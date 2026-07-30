@@ -3,37 +3,37 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Borsa Paneli</title>
-<!-- İkon data URI olarak gömülü: ayrı bir istek oluşmuyor, sunucu logu her
-     sayfa açılışında favicon.ico için 404 basmıyor. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%233b5bfd'/%3E%3Cpath d='M7 22 L13 15 L18 19 L25 9' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<title>Borsa Paneli - FinTech Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%236366f1'/%3E%3Cpath d='M7 22 L13 15 L18 19 L25 9' stroke='white' stroke-width='2.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <header>
-  <div class="sar ustbar">
-    <button class="marka" id="marka" type="button">
-      <span class="marka-ikon">B</span>
+  <div class="container topbar">
+    <button class="brand" id="marka" type="button">
+      <span class="brand-icon">B</span>
       <span>Borsa Paneli</span>
     </button>
-    <span class="tazelik" id="tazelik">yükleniyor…</span>
-    <span class="tarama-durumu" id="tarama-durumu" hidden>
+    <span class="badge" id="tazelik">Yükleniyor...</span>
+
+    <span class="badge error" id="tarama-durumu" hidden>
       <span id="tarama-metin"></span>
       <span class="tarama-bar"><i id="tarama-bar-ic"></i></span>
-      <button type="button" class="baglanti-dugme" id="tarama-iptal" hidden>İptal</button>
+      <button type="button" class="btn-ghost" id="tarama-iptal" style="padding: 2px 8px; font-size: 10px; margin-left: 8px;" hidden>İptal</button>
     </span>
-    <div class="arama">
-      <input id="arama-girdi" type="search" placeholder="Sembol veya şirket ara…"
+
+    <div class="search-box arama">
+      <input id="arama-girdi" class="search-input" type="search" placeholder="Sembol veya şirket ara…"
              autocomplete="off" spellcheck="false" aria-label="Sembol ara">
-      <div class="oneriler" id="oneriler" role="listbox"></div>
+      <div class="search-dropdown" id="oneriler" role="listbox"></div>
     </div>
   </div>
-  <div class="sar">
-    <nav class="sekmeler" id="nav" aria-label="Ekranlar">
-      <button type="button" data-ekran="skor" aria-current="page">Skor kartı</button>
-      <button type="button" data-ekran="rapor">Rapor okuyucu</button>
-      <button type="button" data-ekran="kalite">Kalite trendi</button>
+  <div class="container">
+    <nav class="tabs" id="nav" aria-label="Ekranlar">
+      <button type="button" data-ekran="skor" aria-current="page">Skor Kartı</button>
+      <button type="button" data-ekran="rapor">LLM Raporu</button>
+      <button type="button" data-ekran="kalite">Kalite Trendi</button>
       <button type="button" data-ekran="tarayici">Tarayıcı</button>
       <button type="button" data-ekran="karsilastir">Karşılaştır</button>
       <button type="button" data-ekran="portfoy">Portföy</button>
@@ -42,16 +42,16 @@
   </div>
 </header>
 
-<div class="uyari-bandi">
+<div class="alert-banner">
   Bu araç geçmiş finansal verileri analiz eder, gelecek getiri tahmini veya yatırım tavsiyesi vermez.
 </div>
 
-<main class="sar" id="ekran">
-  <div class="yuklenirken">yükleniyor…</div>
+<main class="container" id="ekran" style="margin-top: 32px;">
+  <div class="loading-state">Yükleniyor…</div>
 </main>
 
-<footer class="sar">
-  Veri kaynağı Yahoo Finance; enflasyon serileri TCMB EVDS, ABD BLS ve Dünya Bankası.
+<footer class="container">
+  Veri kaynağı Yahoo Finance; enflasyon serileri TCMB EVDS, ABD BLS ve Dünya Bankası.<br>
   Rakamlar doğrulanmamıştır, karar öncesi KAP bildirimleriyle karşılaştırılmalıdır.
 </footer>
 

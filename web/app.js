@@ -96,7 +96,7 @@ const yonSinifi = (yon) =>
   ({ artış: "e-artis", genişleme: "e-artis", düşüş: "e-dusus", daralma: "e-dusus" }[yon] || "e-yatay");
 
 const isaretRengi = (deger) =>
-  deger === null || deger === undefined ? "" : deger > 0 ? "yesil" : deger < 0 ? "kirmizi" : "";
+  deger === null || deger === undefined ? "" : deger > 0 ? "text-primary" : deger < 0 ? "text-error" : "";
 
 /* ═══════════════════════════════════════════════════════ terim sözlüğü */
 
@@ -297,14 +297,14 @@ async function durumuYukle() {
   const parcalar = DURUM.evrenler.map((e) => {
     if (e.tarama_gerekli) {
       return `${kacir(e.label)}: taranmadı ·
-        <button type="button" class="baglanti-dugme" data-tarama-baslat-durum="${kacir(e.id)}"
+        <button type="button" class="btn-ghost" data-tarama-baslat-durum="${kacir(e.id)}"
           >şimdi tara</button>`;
     }
     const yas = e.tarama_yasi_saat;
     const ek = yas === null || yas === undefined ? "" : yas < 1 ? " · yeni" : ` · ${Math.round(yas)} sa`;
     const eski = !e.tarama_calisiyor && yas !== null && yas !== undefined && yas > TARAMA_GUNCEL_SINIRI_SAAT;
     const guncelle = eski
-      ? ` · <button type="button" class="baglanti-dugme" data-tarama-baslat-durum="${kacir(e.id)}"
+      ? ` · <button type="button" class="btn-ghost" data-tarama-baslat-durum="${kacir(e.id)}"
           >Güncelle</button>`
       : "";
     return `${kacir(e.label)} ${e.taranan}${kacir(ek)}${guncelle}`;
@@ -497,7 +497,7 @@ function durumKarti(baslik, aciklama, komut, hatali = false, taramaEvreni = null
       <p>${kacir(aciklama)}</p>
       ${komut ? `<code>${kacir(komut)}</code>` : ""}
       ${taramaEvreni ? `<div style="margin-top:14px">
-          <button type="button" class="dugme" data-tarama-baslat="${kacir(taramaEvreni)}"
+          <button type="button" class="btn-primary" data-tarama-baslat="${kacir(taramaEvreni)}"
             >Taramayı panelden başlat</button>
         </div>` : ""}
     </div></section>`;
@@ -684,7 +684,7 @@ function sirketBasligi(veri) {
         ${notlar.map((n) => `<p style="margin-top:0">${n}</p>`).join("")}
       </div>` : ""}
     <div style="margin-top:12px">
-      <a class="dugme ikincil" href="/api/llm-rapor?sembol=${encodeURIComponent(veri.symbol)}"
+      <a class="btn-primary ikincil" href="/api/llm-rapor?sembol=${encodeURIComponent(veri.symbol)}"
         target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:7px;text-decoration:none">
         📄 LLM raporu görüntüle
       </a>
@@ -737,7 +737,7 @@ function istatistikSeridi(veri) {
   if (son) {
     kartlar.push(`<div class="serit-kart">
         <div class="serit-etiket">${terim("fscore", "F-Skoru")}</div>
-        <div class="serit-deger">${son.score} <span class="gri" style="font-size:16px">/ 9</span></div>
+        <div class="serit-deger">${son.score} <span class="text-muted" style="font-size:16px">/ 9</span></div>
         <div class="serit-alt">${kacir(kiyas("fscore") || son.label)}</div>
       </div>`);
   }
@@ -761,7 +761,7 @@ function istatistikSeridi(veri) {
       && node.value > b.sector_median;
     kartlar.push(`<div class="serit-kart">
         <div class="serit-etiket">${terim(metrik, etiket)}</div>
-        <div class="serit-deger ${metrik === "net_debt_ebitda" && ustunde ? "kirmizi" : ""}"
+        <div class="serit-deger ${metrik === "net_debt_ebitda" && ustunde ? "text-error" : ""}"
           >${kacir(bicimle(metrik, node.value))}</div>
         <div class="serit-alt">${kacir(kiyas(metrik) || node.basis || "")}</div>
       </div>`);
@@ -805,7 +805,7 @@ function uyarilar(veri) {
         ${(b.not_applied || []).length ? `<details>
             <summary>Çalıştırılmayan kurallar (${b.not_applied.length})</summary>
             <ul>${b.not_applied.map((k) =>
-              `<li><span class="mono">${kacir(k.id)}</span> — ${kacir(k.skip_reason || "")}</li>`).join("")}</ul>
+              `<li><span class="tabular-nums">${kacir(k.id)}</span> — ${kacir(k.skip_reason || "")}</li>`).join("")}</ul>
           </details>` : ""}
       </div>
     </div>
@@ -1136,7 +1136,7 @@ function karsBasliklar(sonuclar) {
           ${taze.latest_period ? `<span class="rozet${bayat ? " rozet-uyari" : ""}">
               Dönem ${kacir(taze.latest_period)}${taze.label ? ` · ${kacir(taze.label)}` : ""}</span>` : ""}
         </div>
-        <div style="margin-top:12px"><b class="mono" style="font-size:19px"
+        <div style="margin-top:12px"><b class="tabular-nums" style="font-size:19px"
           >${kacir(TR(p.fiyat, 2))} ${kacir(p.fiyat_para || "")}</b></div>
       </div>`;
   });
@@ -1544,14 +1544,14 @@ function ciz(kap) {
           <p class="not" style="margin-bottom:10px">Ya da kendi kuralını kur:</p>
           <div id="kosullar">${TARAYICI.kosullar.map(kosulSatiri).join("")}</div>
           <div class="form-satir" style="margin-top:10px">
-            <button class="dugme ikincil" type="button" id="kosul-ekle">+ Koşul ekle</button>
+            <button class="btn-primary ikincil" type="button" id="kosul-ekle">+ Koşul ekle</button>
             ${TARAYICI.kosullar.length > 1 ? `
               <div class="alan"><label>Koşullar arası</label>
                 <select id="baglac">
                   <option value="AND"${TARAYICI.baglac === "AND" ? " selected" : ""}>hepsi (VE)</option>
                   <option value="OR"${TARAYICI.baglac === "OR" ? " selected" : ""}>herhangi biri (VEYA)</option>
                 </select></div>` : ""}
-            ${TARAYICI.kosullar.length ? `<button class="dugme" type="button" id="tara">Tara</button>` : ""}
+            ${TARAYICI.kosullar.length ? `<button class="btn-primary" type="button" id="tara">Tara</button>` : ""}
           </div>
         </div>
       </div>
@@ -1629,7 +1629,7 @@ function kosulSatiri(kosul, index) {
             </select>`
           : `<input data-parca="value" type="text" inputmode="decimal" style="width:110px"
               value="${kacir(kosul.value)}">`}
-      <button class="dugme silik sil" type="button">Sil</button>
+      <button class="btn-primary silik sil" type="button">Sil</button>
     </div>`;
 }
 
@@ -1765,7 +1765,7 @@ EKRANLAR.portfoy = async function (kap) {
               <input id="i-komisyon" type="number" step="any" min="0" value="0"></div>
             <div class="alan"><label for="i-kur">İşlem anındaki kur</label>
               <input id="i-kur" type="number" step="any" min="0" placeholder="yalnızca yabancı hisse"></div>
-            <button class="dugme" type="button" id="islem-ekle">Ekle</button>
+            <button class="btn-primary" type="button" id="islem-ekle">Ekle</button>
           </div>
           <p class="not" style="margin-top:10px">Yabancı hissede <b>işlem anındaki kuru</b> girersen
             araç hisse getirisi ile kur getirisini ayrı ayrı gösterebilir. Boş bırakılırsa
@@ -1774,8 +1774,8 @@ EKRANLAR.portfoy = async function (kap) {
           <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--cizgi)">
             <p class="not" style="margin-bottom:8px">Çok sayıda işlemin mi var? Aracı kurumun
               ekstresinden CSV hazırlayıp toplu ekleyebilirsin.</p>
-            <button class="dugme ikincil" type="button" id="csv-ice-aktar">CSV'den içe aktar</button>
-            <a class="baglanti-dugme" href="/api/portfoy/sablon" download="ornek_islemler.csv"
+            <button class="btn-primary ikincil" type="button" id="csv-ice-aktar">CSV'den içe aktar</button>
+            <a class="btn-ghost" href="/api/portfoy/sablon" download="ornek_islemler.csv"
               style="margin-left:10px">örnek şablonu indir</a>
             <input type="file" id="csv-dosya" accept=".csv,text/csv" hidden>
             <div id="csv-mesaj"></div>
@@ -1791,7 +1791,7 @@ EKRANLAR.portfoy = async function (kap) {
                 <td>${kacir(TR(t.quantity, 0))}</td>
                 <td>${kacir(TR(t.price, 2))}</td>
                 <td>${kacir(TR(t.commission, 2))}</td>
-                <td><button class="dugme silik" type="button" data-sil="${i}">Sil</button></td>
+                <td><button class="btn-primary silik" type="button" data-sil="${i}">Sil</button></td>
               </tr>`).join("")}</tbody>
           </table></div>` : ""}
       </div>
