@@ -408,6 +408,16 @@ def _c_asset_turnover(rows, index):
 # ================================================================ Altman Z
 
 
+def _z_yok(detail: str, status=EKSIK, sources=None) -> dict:
+    """`altman_z`'nin başarısız dönüşleri için ortak şekil.
+
+    `zone`/`components` başarı yolunda `**extra` ile ekleniyordu ve yalnızca
+    orada vardı; tüketiciler `.get()` kullandığı için şans eseri ayakta
+    kalıyordu. Artık her dönüş aynı anahtar kümesini taşıyor.
+    """
+    return metric(None, status, detail, sources, zone=None, components=None)
+
+
 def altman_z(client, pack: dict, bank: bool) -> dict:
     """Altman Z-Skoru (imalat/ticaret sürümü).
 
@@ -415,18 +425,19 @@ def altman_z(client, pack: dict, bank: bool) -> dict:
     kaldıraç yapısı tamamen farklı) — hesaplanmaz.
     """
     if bank:
-        return metric(None, GECERSIZ,
-                      "Altman Z modeli banka/finans bilançolarında tanımlı değil")
+        return _z_yok(
+            "Altman Z modeli banka/finans bilançolarında tanımlı değil", GECERSIZ
+        )
 
     rows = F.rows(pack, "annual")
     if not rows:
-        return metric(None, EKSIK, "Yıllık tablo yok")
+        return _z_yok("Yıllık tablo yok")
 
     date = rows[-1]["date"]
     values = rows[-1]["values"]
     assets = values.get("TotalAssets")
     if not assets:
-        return metric(None, EKSIK, "Toplam varlık yok")
+        return _z_yok("Toplam varlık yok")
 
     working = values.get("WorkingCapital")
     retained = values.get("RetainedEarnings")
@@ -449,8 +460,8 @@ def altman_z(client, pack: dict, bank: bool) -> dict:
     ]
     if missing:
         if "MarketCap" in missing and pack.get("market_cap_note"):
-            return metric(None, EKSIK, pack["market_cap_note"])
-        return metric(None, EKSIK, f"Eksik kalem: {', '.join(missing)}")
+            return _z_yok(pack["market_cap_note"])
+        return _z_yok(f"Eksik kalem: {', '.join(missing)}")
 
     x1 = working / assets
     x2 = retained / assets
@@ -458,7 +469,7 @@ def altman_z(client, pack: dict, bank: bool) -> dict:
     x4 = market_cap / liabilities if liabilities else None
     x5 = revenue / assets
     if x4 is None:
-        return metric(None, EKSIK, "Toplam yükümlülük sıfır veya yok")
+        return _z_yok("Toplam yükümlülük sıfır veya yok")
 
     z = 1.2 * x1 + 1.4 * x2 + 3.3 * x3 + 0.6 * x4 + 1.0 * x5
 
@@ -494,21 +505,27 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
     kârın %155'i nakde dönüşmemiş" gibi tamamen yanıltıcı bir sonuç veriyordu.
     """
     if bank:
-        gecersiz = metric(
-            None, GECERSIZ,
+        sebep = (
             "Banka nakit akışı mevduat/kredi hareketiyle belirlenir; "
-            "kâr kalitesi ölçüsü olarak kullanılamaz",
+            "kâr kalitesi ölçüsü olarak kullanılamaz"
         )
+        gecersiz = metric(None, GECERSIZ, sebep)
         # Dört metrik de dönmeli. Anahtarı hiç döndürmemek, metriği "banka için
         # geçersiz" diye işaretlemek yerine sessizce yok ediyordu; okuyucu
         # ölçülüp ölçülmediğini ayırt edemiyor (bkz. "eksik veri sıfır sayılmaz").
-        return {"accrual_ratio": gecersiz, "fcf_gap": gecersiz,
+        # `fcf_gap` normal yolda `net_income`/`free_cash_flow` ekstralarını
+        # taşıyor; burada da aynı anahtarları (boş) taşımalı, yoksa şekil
+        # bank/normal arasında sessizce ayrışır.
+        return {"accrual_ratio": gecersiz,
+                "fcf_gap": metric(None, GECERSIZ, sebep, net_income=None, free_cash_flow=None),
                 "fcf_margin": gecersiz, "fcf_payout": gecersiz, "history": []}
 
     rows = F.rows(pack, "annual")
     if not rows:
-        yok = metric(None, EKSIK, "Yıllık tablo yok")
-        return {"accrual_ratio": yok, "fcf_gap": yok,
+        sebep = "Yıllık tablo yok"
+        yok = metric(None, EKSIK, sebep)
+        return {"accrual_ratio": yok,
+                "fcf_gap": metric(None, EKSIK, sebep, net_income=None, free_cash_flow=None),
                 "fcf_margin": yok, "fcf_payout": yok, "history": []}
 
     date = rows[-1]["date"]
@@ -543,7 +560,8 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
         )
 
     if ni is None or fcf is None or ni == 0:
-        gap = metric(None, EKSIK, "Net kâr veya serbest nakit akışı yok")
+        gap = metric(None, EKSIK, "Net kâr veya serbest nakit akışı yok",
+                     net_income=None, free_cash_flow=None)
     else:
         share = (ni - fcf) / abs(ni)
         gap = metric(
@@ -771,11 +789,12 @@ def margin_profile(pack: dict, bank: bool) -> dict:
     for name in ("gross", "operating", "net"):
         points = series[name]
         if bank and name == "gross":
-            out[name + "_trend"] = metric(None, GECERSIZ, "Bankalar brüt kâr açıklamaz")
+            out[name + "_trend"] = metric(None, GECERSIZ, "Bankalar brüt kâr açıklamaz",
+                                          direction=None)
             continue
         if len(points) < 3:
             out[name + "_trend"] = metric(
-                None, EKSIK, "Trend için en az 3 dönem gerekiyor"
+                None, EKSIK, "Trend için en az 3 dönem gerekiyor", direction=None
             )
             continue
         slope = _slope([value for _, value in points])
@@ -841,13 +860,30 @@ def return_profile(pack: dict) -> dict:
 # ================================================================ reel büyüme
 
 
+#: `INF.real_growth`'ün 7 sabit anahtarına `status`/`detail`/`sources`/`history`
+#: eklenince tam şekil budur. `len(points) < 2` yolu yalnızca `status`/`detail`
+#: dönüyordu (2 anahtar) — tam şeklin geri kalanı `None`/`[]` ile dolduruluyor.
+_REEL_BUYUME_ANAHTARLARI = (
+    "real", "nominal", "cpi_growth", "basis", "label", "start", "end",
+)
+
+
+def _reel_yok(detail: str) -> dict:
+    out = {k: None for k in _REEL_BUYUME_ANAHTARLARI}
+    out["status"] = EKSIK
+    out["detail"] = detail
+    out["sources"] = []
+    out["history"] = []
+    return out
+
+
 def real_growth_profile(pack: dict, cpi: dict) -> dict:
     """Gelir ve net kârın nominal + reel büyümesi, ve reel seriler."""
     out = {}
     for key, field in (("revenue", "TotalRevenue"), ("net_income", "NetIncome")):
         points = F.series(pack, field)
         if len(points) < 2:
-            out[key] = {"status": EKSIK, "detail": "En az iki dönem gerekiyor"}
+            out[key] = _reel_yok("En az iki dönem gerekiyor")
             continue
 
         nominal = F.growth(pack, field)
@@ -859,6 +895,10 @@ def real_growth_profile(pack: dict, cpi: dict) -> dict:
                 if nominal is not None
                 else "Nominal büyüme hesaplanamadı (taban dönem pozitif değil)"
             )
+        else:
+            # Başarı yolunda `detail` hiç yazılmıyordu; diğer yolla aynı
+            # anahtar kümesi için açıkça None.
+            growth["detail"] = None
         growth["sources"] = [
             source(field, points[-1][0], points[-1][1]),
             source(field, points[-2][0], points[-2][1]),
@@ -900,6 +940,9 @@ def valuation(client, pack: dict) -> dict:
         "currency": pack.get("currency"),
         "price_currency": pack.get("price_currency"),
         "converted": pack.get("currency") != pack.get("price_currency"),
+        # Yalnızca erken dönüşte (aşağıda) yazılıyordu; normal yol hiç
+        # taşımıyordu. Şimdi her yolda var, dolu ya da None.
+        "market_cap_note": pack.get("market_cap_note"),
     }
 
     net_income = F.flow_value(pack, "NetIncome")
@@ -907,15 +950,15 @@ def valuation(client, pack: dict) -> dict:
 
     if not market_cap:
         reason = pack.get("market_cap_note") or "Piyasa değeri çevrilemedi"
-        out["pe"] = metric(None, EKSIK, reason)
-        out["pb"] = metric(None, EKSIK, reason)
-        out["market_cap_note"] = pack.get("market_cap_note")
+        out["pe"] = metric(None, EKSIK, reason, basis=None)
+        out["pb"] = metric(None, EKSIK, reason, basis=None)
         return out
 
     if not net_income["value"] or net_income["value"] <= 0:
         out["pe"] = metric(
             None, EKSIK,
             "Dönem zararla kapandı veya net kâr yok — F/K tanımsız",
+            basis=None,
         )
     else:
         value = market_cap / net_income["value"]
@@ -927,7 +970,8 @@ def valuation(client, pack: dict) -> dict:
         )
 
     if not equity["value"] or equity["value"] <= 0:
-        out["pb"] = metric(None, EKSIK, "Özsermaye pozitif değil — PD/DD tanımsız")
+        out["pb"] = metric(None, EKSIK, "Özsermaye pozitif değil — PD/DD tanımsız",
+                           basis=None)
     else:
         value = market_cap / equity["value"]
         out["pb"] = metric(
