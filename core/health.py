@@ -534,9 +534,11 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
         fcf_margin = metric(None, EKSIK, "Serbest nakit akışı veya gelir yok")
     else:
         margin = fcf / revenue
+        # Seviye, değişim değil: `B.puan` (işaretsiz), `B.yuzde` değil. Brüt/net
+        # marjlar da böyle basılıyor; "%+16,0" bir marj için yanıltıcı okunuyor.
         fcf_margin = metric(
             margin, OK,
-            f"FCF Marjı {B.yuzde(margin, 2)} (serbest nakit akışı / gelir)",
+            f"Gelirin {B.puan(margin * 100, 1)} kadarı serbest nakde dönüşmüş",
             [source("FreeCashFlow", date, fcf), source("TotalRevenue", date, revenue)],
         )
 
@@ -562,7 +564,8 @@ def profit_quality(pack: dict, bank: bool = False) -> dict:
             payout_ratio = div_paid / fcf
             payout = metric(
                 payout_ratio, OK,
-                f"FCF Payout Oranı {B.yuzde(payout_ratio, 2)} (ödenen temettü / serbest nakit akışı)",
+                f"Serbest nakit akışının {B.puan(payout_ratio * 100, 1)} kadarı "
+                f"temettü olarak dağıtılmış",
                 [source("CashDividendsPaid", date, div), source("FreeCashFlow", date, fcf)],
             )
         else:
@@ -705,8 +708,10 @@ def debt_profile(pack: dict, bank: bool) -> dict:
                 change = (nwc_now - nwc_prev) / abs(nwc_prev)
                 out["nwc_change"] = metric(
                     change, OK,
-                    f"İşletme sermayesi ihtiyacı değişimi: {B.yuzde(change, 1, isaretli=True)}",
-                    [source("CurrentAssets", rows[-1]["date"], ca_now), source("CurrentLiabilities", rows[-1]["date"], cl_now)],
+                    f"Bir önceki yıla göre {B.yuzde(change, 1)} "
+                    f"(cari varlık − cari yükümlülük)",
+                    [source("CurrentAssets", rows[-1]["date"], ca_now),
+                     source("CurrentLiabilities", rows[-1]["date"], cl_now)],
                 )
         else:
             out["nwc_change"] = metric(None, EKSIK, "Cari varlık/yükümlülük verisi eksik")

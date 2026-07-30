@@ -90,6 +90,7 @@ NAKIT_AKISI = (
     "OperatingCashFlow",
     "FreeCashFlow",
     "CapitalExpenditure",
+    "CashDividendsPaid",
 )
 
 YILLIK_ALANLAR = GELIR_TABLOSU + BILANCO + NAKIT_AKISI

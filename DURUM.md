@@ -72,6 +72,23 @@ sandı. Filtreli çalıştırmada bu hata yok. Uzun bağlamda model açıklama
 süslemeye başlıyor ve süslerken işaret hatası yapabiliyor; sorulan sayıları
 doğru veriyor ama "neden" cevaplarını rapordan teyit etmek gerekiyor.
 
+## Bilinmesi gereken tuzak: önbellek anahtarı alan listesini içermiyor
+
+`yahoo.py`'de `fundamentals()` önbellek anahtarı `{symbol}__{period_type}`.
+Yani `YILLIK_ALANLAR` / `CEYREKLIK_ALANLAR` listesine **yeni bir kalem
+eklendiğinde anahtar değişmiyor** ve eski kayıt (o kalem olmadan) TTL dolana
+kadar servis edilmeye devam ediyor. Yeni kalem "Yahoo vermiyor" gibi görünür,
+oysa istek hiç tazelenmemiştir.
+
+Yeni kalem ekledikten sonra tek bir sembol için zorla tazele:
+
+```python
+YahooClient().fundamentals("SISE.IS", "annual", ttl=0)
+```
+
+`CashDividendsPaid` eklenirken tam olarak bu yaşandı. Kalıcı çözüm anahtara
+alan listesinin bir özetini (hash) katmak olurdu.
+
 ## Sıradaki Adımlar (Gelecek Oturumlar)
 
 F10'un asıl doğrulama adımı (canlı sınav) geçti; aşağıdakiler kalan işler.
@@ -80,14 +97,10 @@ F10'un asıl doğrulama adımı (canlı sınav) geçti; aşağıdakiler kalan i�
    - Arayüzü modernleştirmek için Stitch MCP / Tailwind / Vanilla CSS tasarımlarının yapılması.
    - Karşılaştırma uç noktasının arayüzde görselleştirilmesi.
 3. **Genel Refactoring & Testler:**
-   - **`nwc_change`, `fcf_margin`, `fcf_payout` hâlâ hiçbir yerde
-     gösterilmiyor.** Testleri yazıldı (`tests/test_nakit_metrikleri.py`, 21
-     test) ve hesapları doğru, ama `llm_rapor.py` de `web/app.js` de bu üç
-     metriği okumuyor — şu an ölü kod. Rapora eklenecekse `_kar_kalitesi` ve
-     `_borc` bölümlerine birer `_metrik_node` satırı yetiyor.
-   - `fcf_margin` bir **seviye** ama `B.yuzde` ile basıldığı için işaretli
-     çıkıyor ("FCF Marjı %+16,00"). Diğer marjlar `B.puan`tan geçiyor
-     ("Brüt marj %22,6"). Rapora eklenmeden önce bu tutarsızlık giderilmeli.
+   - Bu üç metrik artık **rapora bağlı** (`_kar_kalitesi` ve `_borc`
+     bölümlerinde) ve `tests/test_nakit_metrikleri.py` ile test altında.
+     `web/app.js` hâlâ okumuyor — arayüze de eklenecekse skor kartına
+     eklenebilir.
    - `karsilastir` analizi iki kez yapıyor: `olustur()` zaten `H.analyze`
      çağırıyor, `_metrik_degerleri()` aynı işi tekrarlıyor. Önbellek ağ
      trafiğini kurtarıyor ama hesap boşa dönüyor; `olustur()` paketi de

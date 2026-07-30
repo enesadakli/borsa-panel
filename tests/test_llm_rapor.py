@@ -124,6 +124,10 @@ def _sentetik_paket() -> dict:
             "net_debt_ebitda": {"value": 2.2, "status": "ok",
                                 "detail": "Net borç/FAVÖK = 2,20 (TTM FAVÖK)",
                                 "sources": []},
+            "nwc_change": {"value": -0.592, "status": "ok",
+                           "detail": "Bir önceki yıla göre %-59,2 "
+                                     "(cari varlık − cari yükümlülük)",
+                           "sources": []},
             "history": [
                 {"date": "2024-12-31", "net_debt": 100_920_000_000,
                  "ebitda": 53_430_000_000, "net_debt_ebitda": 1.89},
@@ -136,6 +140,13 @@ def _sentetik_paket() -> dict:
                         "detail": "Net kârın %60 kadarı nakde dönmemiş", "sources": []},
             "accrual_ratio": {"value": None, "status": "eksik_veri",
                               "detail": "Veri yok", "sources": []},
+            "fcf_margin": {"value": 0.017, "status": "ok",
+                           "detail": "Gelirin %1,7 kadarı serbest nakde dönüşmüş",
+                           "sources": []},
+            "fcf_payout": {"value": 0.673, "status": "ok",
+                           "detail": "Serbest nakit akışının %67,3 kadarı "
+                                     "temettü olarak dağıtılmış",
+                           "sources": []},
             "history": [
                 {"date": "2025-12-31", "net_income": 9_880_000_000,
                  "operating_cash_flow": 39_730_000_000,
@@ -286,6 +297,32 @@ def test_capraz_inceleme_kural_yoksa_bolum_yok():
     paket = {"marjlar": {"series": {"gross": [("2025-12-31", 30.0)],
                                     "operating": [("2025-12-31", 25.0)]}}}
     assert LLM._capraz_inceleme(paket) == []
+
+
+def test_nakit_metrikleri_raporda_gorunuyor():
+    """FCF marjı, temettü karşılığı ve NWC değişimi rapora basılmalı.
+
+    Üçü de `health.py`'de hesaplanıyordu ama uzun süre hiçbir yüzey okumuyordu
+    (ölü kod). Bu test onları bağlı tutuyor: biri satır listesinden düşerse
+    hesap sağlam kalsa bile rapor sessizce eksilir.
+    """
+    metin = LLM.bicimlendir(_sentetik_paket())
+    for etiket in ("FCF marjı", "Temettünün nakit karşılığı",
+                   "İşletme sermayesi değişimi"):
+        assert etiket in metin, f"{etiket} raporda yok"
+
+
+def test_metrik_satirlari_etiketi_tekrarlamiyor():
+    """`- Etiket: Etiket ...` biçiminde çift basım olmamalı.
+
+    `_metrik_node` satırı `- {etiket}: {detail}` diye kuruyor; detail metni
+    etiketle başlarsa etiket iki kez görünüyor. Yeni eklenen üç metrik bu
+    tuzağa düşmesin diye kilitleniyor.
+    """
+    metin = LLM.bicimlendir(_sentetik_paket())
+    for etiket in ("FCF marjı", "Temettünün nakit karşılığı",
+                   "İşletme sermayesi değişimi"):
+        assert f"- {etiket}: {etiket}" not in metin, f"{etiket} iki kez basılmış"
 
 
 def test_tum_bolumler_fikstur_tarafindan_tetikleniyor():

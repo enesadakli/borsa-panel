@@ -49,8 +49,9 @@ def test_fcf_marji_hesabi():
     node = _kar_kalitesi()["fcf_margin"]
     assert node["status"] == OK
     assert abs(node["value"] - 0.16) < 1e-9, "80 / 500 = 0,16 olmalı"
-    # `B.yuzde` varsayılanı işaretli: seviye "%+16,00" diye basılıyor.
-    assert "16,00" in node["detail"]
+    # Seviye olduğu için işaretsiz basılıyor ("%16,0"), marjlarla aynı biçim.
+    assert "%16,0" in node["detail"]
+    assert "+" not in node["detail"], "marj seviyesi işaretli basılmamalı"
 
 
 def test_fcf_marji_negatif_olabilir():

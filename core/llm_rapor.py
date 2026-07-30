@@ -733,7 +733,8 @@ def _borc(paket: dict) -> list[str]:
                             ("Net borç/FAVÖK", "net_debt_ebitda"),
                             ("Faiz karşılama", "interest_coverage"),
                             ("Kısa vadeli borcun payı", "short_term_share"),
-                            ("Özsermaye durumu", "equity_negative")):
+                            ("Özsermaye durumu", "equity_negative"),
+                            ("İşletme sermayesi değişimi", "nwc_change")):
         satir = _metrik_node(etiket, b.get(anahtar))
         if satir:
             out.append(satir)
@@ -774,7 +775,9 @@ def _kar_kalitesi(paket: dict) -> list[str]:
         return []
     out = ["## Kâr kalitesi", ""]
     for etiket, anahtar in (("Kâr–nakit sapması", "fcf_gap"),
-                            ("Tahakkuk oranı (Sloan)", "accrual_ratio")):
+                            ("Tahakkuk oranı (Sloan)", "accrual_ratio"),
+                            ("FCF marjı", "fcf_margin"),
+                            ("Temettünün nakit karşılığı", "fcf_payout")):
         satir = _metrik_node(etiket, k.get(anahtar))
         if satir:
             out.append(satir)
