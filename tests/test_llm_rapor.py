@@ -12,6 +12,7 @@ bağlamadan; `server.py`'yi import etmek yalnızca nesneleri kurar.
 
 from __future__ import annotations
 
+import copy
 import inspect
 import os
 import re
@@ -56,16 +57,21 @@ def _sentetik_paket() -> dict:
                 {"rule_id": "NAR_REEL_BUYUME", "text": "Gelir nominal %10 arttı.",
                  "sources": [{"item": "TotalRevenue", "period": "2025-12-31"}]},
             ],
-            "data_quality": {
-                "missing_items": ["EBITDA"], "currency_verified": True,
-                "tms29_boundary_crossed": False, "cpi_available": True,
-            },
+        },
+        # `olustur()` bunu `ozet.get("data_quality")`'den okuyup üst düzeye
+        # taşıyor (bkz. llm_rapor.py:80); tüketiciler (`_ozet_blok`,
+        # `_veri_kalitesi`) hep üst düzeyden okur. Burada da üst düzeyde
+        # olmalı — bir ara `ozet` içine gömülüydü ve dört dal hiç tetiklenmedi.
+        "data_quality": {
+            "missing_items": ["EBITDA"], "currency_verified": True,
+            "tms29_boundary_crossed": False, "cpi_available": True,
         },
         "bayraklar": {
             "flags": [{"id": "R1_KAR_NAKDE_DONMUYOR", "level": "kirmizi",
                        "title": "Kâr nakde dönmüyor", "explanation": "Test açıklaması."}],
             "notes": [],
             "not_applied": [{"id": "R3_BORC_SIKISMASI", "skip_reason": "veri yok"}],
+            "red_count": 1, "yellow_count": 0,
         },
         "fscore": {
             "latest": {
@@ -297,6 +303,59 @@ def test_capraz_inceleme_kural_yoksa_bolum_yok():
     paket = {"marjlar": {"series": {"gross": [("2025-12-31", 30.0)],
                                     "operating": [("2025-12-31", 25.0)]}}}
     assert LLM._capraz_inceleme(paket) == []
+
+
+def test_ozet_ve_veri_kalitesi_fiksturle_ayni_seyi_soyluyor():
+    """Özet bloğu ve Veri kalitesi bölümü, fikstürün kendi verisiyle çelişmemeli.
+
+    Bir ara `data_quality` fikstürde `ozet` içine gömülüydü; `olustur()`
+    üst düzeye koyuyor (`llm_rapor.py:80`) ve tüketiciler üst düzeyden okuyor
+    (`_ozet_blok:624`, `_veri_kalitesi:1063`). Yanlış yerdeyken bölümler
+    `paket.get("data_quality")` üzerinden hep `{}` görüyordu; fikstür
+    "1 kalem eksik, TÜFE var" dediği hâlde rapor "0 kalem eksik, TÜFE yok"
+    basıyordu ve hiçbir assert bunu yakalamıyordu.
+    """
+    metin = LLM.bicimlendir(_sentetik_paket())
+    assert "- Veri: 1 kalem eksik · TÜFE var · sektör bağlamı var" in metin
+    assert "- Tetiklenen bayrak: 1 kırmızı, 0 sarı" in metin
+
+
+def test_veri_kalitesi_dort_dali_da_tetikleniyor():
+    """`_veri_kalitesi`'nin 4 gerçek dalı tek tek çalıştırılmalı.
+
+    Ana fikstür hepsi temiz bir şirketi temsil ediyor (`test_dil` ve diğer
+    ~15 testin üzerine kurulu olduğu şey); onu bozuk veriye çevirmek o
+    testleri çarpıtır. Bunun yerine kopyasını al, tek bayrağı çevir.
+    """
+    taban = _sentetik_paket()
+
+    eksik_kalemli = copy.deepcopy(taban)
+    eksik_kalemli["data_quality"]["missing_items"] = ["EBITDA", "TotalDebt"]
+    metin = LLM.bicimlendir(eksik_kalemli, bolumler=["veri_kalitesi"])
+    assert "Yahoo'dan gelmeyen kalemler: EBITDA, TotalDebt" in metin
+
+    para_dogrulanmamis = copy.deepcopy(taban)
+    para_dogrulanmamis["data_quality"]["currency_verified"] = False
+    metin = LLM.bicimlendir(para_dogrulanmamis, bolumler=["veri_kalitesi"])
+    assert "para birimi kesin doğrulanamadı" in metin
+
+    tufe_yok = copy.deepcopy(taban)
+    tufe_yok["data_quality"]["cpi_available"] = False
+    metin = LLM.bicimlendir(tufe_yok, bolumler=["veri_kalitesi"])
+    assert "TÜFE serisi yok" in metin
+
+    tms29_sinirinda = copy.deepcopy(taban)
+    tms29_sinirinda["data_quality"]["tms29_boundary_crossed"] = True
+    metin = LLM.bicimlendir(tms29_sinirinda, bolumler=["veri_kalitesi"])
+    assert "TMS-29" in metin
+
+    # Taban fikstür kasıtlı olarak 1 eksik kalem taşıyor (Adım 1: Özet ve Veri
+    # kalitesi aynı şeyi söylesin diye) — "sorun yok" dalı için ayrıca
+    # gerçekten temiz bir varyant gerekiyor.
+    tertemiz = copy.deepcopy(taban)
+    tertemiz["data_quality"]["missing_items"] = []
+    temiz = LLM.bicimlendir(tertemiz, bolumler=["veri_kalitesi"])
+    assert "Bilinen bir veri kalitesi sorunu yok" in temiz
 
 
 def test_nakit_metrikleri_raporda_gorunuyor():
