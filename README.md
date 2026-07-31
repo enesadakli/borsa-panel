@@ -26,11 +26,19 @@ Finance'ten BIST ve ABD hisselerinin gelir tablosu, bilanço ve nakit akışın�
 
 ## Kurulum
 
-Harici paket **gerekmez** — yalnızca Python 3.11+ standart kütüphanesi.
+**Python tarafı** (analiz motoru, sunucu) harici paket **gerektirmez** —
+yalnızca Python 3.11+ standart kütüphanesi. `pip install` adımı yok.
 
 ```bash
 python --version
 ```
+
+**Arayüz tarafında tek istisna:** grafikler [Chart.js](https://www.chartjs.org)
+kullanıyor (`web/vendor/chart.umd.min.js`, MIT lisanslı). Dosya repoya
+lokale indirilmiş hâlde eklendi — CDN'den çekilmiyor, internet gerektirmiyor,
+tam offline çalışıyor. Bu, projenin tek harici JavaScript bağımlılığı;
+bilinçli bir tercih, çünkü elle-SVG grafiklerle etkileşimli tooltip/animasyon
+gibi gözle görülür bir fark yaratmak pratik değildi.
 
 Panel: `baslat.bat` dosyasına çift tıkla. İlk çalıştırmada BIST taraması
 teklif edilir (~17 dk, bir kez); tarama olmadan da skor kartı ve rapor

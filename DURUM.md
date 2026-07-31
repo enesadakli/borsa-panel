@@ -92,21 +92,44 @@ Aynı sınıftan tuzak beş önbellek noktasında daha var (`profile`, `series`,
 metrikler hâlâ sık değişirken oraya kendi kendini iyileştiren bir anahtar
 koymak riskli olurdu.
 
+## F12 — Grafikler Chart.js'e taşındı, sıfır-pip kuralı kontrollü gevşetildi
+
+**Karar:** proje "sıfır pip" kuralını (Python backend) korumaya devam ediyor,
+ama kullanıcıyla yapılan tartışma sonunda **yalnızca gözle görülür fark
+yaratacak** yerde (grafikler) bir istisna yapıldı. Detaylı gerekçe
+README.md → Kurulum bölümünde.
+
+- `web/vendor/chart.umd.min.js` — Chart.js v4.5.1, MIT, lokale indirilmiş
+  (CDN yok, tam offline). Projenin tek harici JS bağımlılığı.
+- `web/app.js`'teki `seritGrafik()` (çok şeritli, her seri kendi ölçeğinde)
+  ve `sutunGrafik()` elle-SVG yerine Chart.js kullanıyor. **Çağrı yerleri
+  değişmedi** — üç kullanım da (Skor Kartı'nın kalite mini-paneli, Kalite
+  Trendi ekranı, Karşılaştır'ın şirket başına mini grafiği) test edildi.
+- Yaşam döngüsü: `AKTIF_GRAFIKLER` + `grafikleriTemizle()`, her ekran
+  değişiminde (`yonlendir()`) eski Chart.js örneklerini `destroy()` ediyor —
+  aksi hâlde canvas DOM'dan silinse bile Chart.js'in iç kaydı bellek/CPU
+  sızdırır. Çoklu gezinmeyle sınandı, sızıntı yok.
+- **Bulunan ve kök nedeniyle düzeltilen gerçek hata:** `app.js` başlangıçta
+  `yonlendir()`'i iki bağımsız yerden (sözlük yüklenince + durum yüklenince)
+  çağırıyordu. SVG'de zararsızdı, Chart.js'te yarış durumu yaratıp hayalet
+  grafik örnekleri (6 yerine 12) bırakıyordu. `Promise.all([sozlukYukle(),
+  durumuYukle()]).then(() => yonlendir())` ile birleştirilip kökten
+  kapatıldı; ek savunma olarak `GRAFIK_NESIL` nesil sayacı da eklendi.
+- **Test sırasında yakalanan yan hata:** `renkCoz()` fonksiyonunun
+  docstring'inde "alınmalı" kelimesi `test_dil.py`'nin yasak
+  `alın(malı|abilir)` kalıbına (alım yönlendirmesi) yanlışlıkla takıldı —
+  "okunmalı" ile değiştirildi. Bu test yorum satırlarını da tarıyor, yalnızca
+  kullanıcı arayüzü metnini değil.
+- Süit: 146 geçti, 0 düştü.
+
 ## Sıradaki Adımlar (Gelecek Oturumlar)
 
-F10'un asıl doğrulama adımı (canlı sınav) geçti; aşağıdakiler kalan işler.
-
-1. **UX/UI İyileştirmeleri & Stitch Entegrasyonu:**
-   - Arayüzü modernleştirmek için Stitch MCP / Tailwind / Vanilla CSS tasarımlarının yapılması.
-   - Karşılaştırma uç noktasının arayüzde görselleştirilmesi.
-3. **Genel Refactoring & Testler:**
-   - Bu üç metrik artık **rapora bağlı** (`_kar_kalitesi` ve `_borc`
-     bölümlerinde) ve `tests/test_nakit_metrikleri.py` ile test altında.
-     `web/app.js` hâlâ okumuyor — arayüze de eklenecekse skor kartına
-     eklenebilir.
-   - `karsilastir` analizi iki kez yapıyor: `olustur()` zaten `H.analyze`
-     çağırıyor, `_metrik_degerleri()` aynı işi tekrarlıyor. Önbellek ağ
-     trafiğini kurtarıyor ama hesap boşa dönüyor; `olustur()` paketi de
-     döndürecek şekilde ayrılırsa tekrar kalkar.
-   - F-Skoru sektör medyanı iki yerde basılıyor (`_fskoru` ve `_metrikler`);
-     hangisinin kalacağına karar verilmeli.
+1. `nwc_change`/`fcf_margin`/`fcf_payout` rapora bağlı
+   (`_kar_kalitesi`/`_borc`) ve test altında, ama `web/app.js` hâlâ
+   okumuyor — arayüze de eklenecekse skor kartına eklenebilir.
+2. `karsilastir` analizi iki kez yapıyor: `olustur()` zaten `H.analyze`
+   çağırıyor, `_metrik_degerleri()` aynı işi tekrarlıyor. Önbellek ağ
+   trafiğini kurtarıyor ama hesap boşa dönüyor; `olustur()` paketi de
+   döndürecek şekilde ayrılırsa tekrar kalkar.
+3. F-Skoru sektör medyanı iki yerde basılıyor (`_fskoru` ve `_metrikler`);
+   hangisinin kalacağına karar verilmeli.

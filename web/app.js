@@ -194,90 +194,159 @@ function terimBalonuKur() {
   window.addEventListener("hashchange", kapat);
 }
 
-/* ═══════════════════════════════════════════════════════════════ SVG */
+/* ═══════════════════════════════════════════════════════════ grafikler */
 
-/** Çok şeritli zaman serisi grafiği.
- *
- * Her seri kendi şeridinde, kendi ölçeğinde; zaman ekseni ortak. Farklı
- * birimdeki serileri (0–9 skor, % marj, kat borç oranı) tek eksene bindirmek
- * çizgilerin kesişmesine anlam yükletirdi.
+/** Chart.js'e ekran talep ederken verilen `var(--x)` rengini gerçek renge
+ * çözer. Canvas 2D bağlamı CSS özel özelliklerini DOM gibi çözmez; tarayıcı
+ * temasına göre değişen tema renklerimiz `getComputedStyle` ile okunmalı. */
+function renkCoz(deger) {
+  const es = /^var\((--[a-z-]+)\)$/.exec((deger || "").trim());
+  if (!es) return deger;
+  return getComputedStyle(document.documentElement).getPropertyValue(es[1]).trim() || deger;
+}
+
+/** Ekranda o an çizili Chart.js grafiklerinin kaydı. Bir ekrandan diğerine
+ * geçildiğinde (`yonlendir()`) hepsi `destroy()` edilir — aksi hâlde her ekran
+ * değişiminde eski canvas'lar DOM'dan silinse bile Chart.js'in iç kaydında
+ * yaşamaya devam eder ve bellek/CPU sızıntısı birikir. */
+let AKTIF_GRAFIKLER = [];
+
+function grafikleriTemizle() {
+  AKTIF_GRAFIKLER.forEach((g) => g.destroy());
+  AKTIF_GRAFIKLER = [];
+}
+
+let GRAFIK_SAYAC = 0;
+
+/** `yonlendir()` başlangıçta iki ayrı yerden (sözlük + durum yüklenince)
+ * çağrılıyor — SVG'de zararsızdı, Chart.js'te yarış durumu yaratıyor: ikinci
+ * çağrı `grafikleriTemizle()`'yi ilk çağrının grafikleri henüz KURULMADAN
+ * çalıştırıyor, sonra ilk çağrının ertelenmiş kurulumu araya girip artık
+ * ekranda olmayan canvas'lara bağlanıyor — hayalet grafik. Her `yonlendir()`
+ * çağrısı kendi "nesil" numarasını alır; kurulum anında nesil değişmişse
+ * (araya yeni bir gezinme girmişse) canvas DOM'da olsa bile kurulum iptal
+ * edilir. */
+let GRAFIK_NESIL = 0;
+
+/** Canvas henüz DOM'a girmeden Chart.js kurulamıyor; `cizim` HTML string
+ * olarak döndürülüp çağıran taraf onu `innerHTML`'e yazdıktan hemen sonra
+ * `setTimeout(…, 0)` ile (bir sonraki tik'te, DOM zaten güncellenmişken)
+ * gerçek grafik kuruluyor. Çağıran taraflar hiç değişmedi. */
+function _ertelenmisKur(fn) {
+  const nesil = GRAFIK_NESIL;
+  setTimeout(() => {
+    if (nesil !== GRAFIK_NESIL) return; // araya yeni bir gezinme girdi, vazgeç
+    try { fn(); } catch (hata) { console.error("grafik kurulamadı:", hata); }
+  }, 0);
+}
+
+/** Çok şeritli zaman serisi grafiği — her seri kendi küçük grafiğinde, kendi
+ * ölçeğinde; zaman ekseni ortak. Farklı birimdeki serileri (0–9 skor, % marj,
+ * kat borç oranı) tek eksene bindirmek çizgilerin kesişmesine anlam
+ * yükletirdi — bu yüzden tek büyük grafik değil, N tane küçük grafik.
  */
 function seritGrafik(seriler, genislik = 700) {
   const gecerli = seriler.filter((s) => s.noktalar.filter((n) => n.deger !== null).length >= 2);
   if (!gecerli.length) return "";
 
-  const solPay = 126, sagPay = 20, seritY = 44, bosluk = 14, ustPay = 8, altPay = 24;
-  const yukseklik = ustPay + gecerli.length * (seritY + bosluk) + altPay;
-
   const tarihler = [...new Set(gecerli.flatMap((s) => s.noktalar.map((n) => n.tarih)))].sort();
-  const xOf = (tarih) => {
-    const i = tarihler.indexOf(tarih);
-    if (tarihler.length === 1) return solPay + (genislik - solPay - sagPay) / 2;
-    return solPay + (i / (tarihler.length - 1)) * (genislik - solPay - sagPay);
-  };
+  const idler = gecerli.map(() => `grafik-${++GRAFIK_SAYAC}`);
 
-  let svg = `<svg class="grafik" viewBox="0 0 ${genislik} ${yukseklik}" role="img"
-    aria-label="Kalite metriklerinin dönem dönem seyri">`;
-
-  gecerli.forEach((seri, sira) => {
-    const ust = ustPay + sira * (seritY + bosluk);
-    const alt = ust + seritY;
+  const html = gecerli.map((seri, sira) => {
     const degerler = seri.noktalar.filter((n) => n.deger !== null).map((n) => n.deger);
     const enAz = Math.min(...degerler), enCok = Math.max(...degerler);
-    const aralik = enCok - enAz || 1;
-    const yOf = (d) => alt - ((d - enAz) / aralik) * (seritY - 10) - 5;
+    const aralikMetni = seri.aralikMetni || `${seri.bicim(enAz)} – ${seri.bicim(enCok)}`;
+    return `<div class="grafik-serit">
+        <div class="grafik-serit-bas">
+          <span>${kacir(seri.ad)}</span>
+          <span class="text-muted">${kacir(aralikMetni)}</span>
+        </div>
+        <div class="grafik-kutu" style="max-width:${genislik}px">
+          <canvas id="${idler[sira]}"></canvas>
+        </div>
+      </div>`;
+  }).join("");
 
-    svg += `<line x1="${solPay}" y1="${alt}" x2="${genislik - sagPay}" y2="${alt}"
-      stroke="currentColor" stroke-width="1" opacity="0.14"/>`;
-    svg += `<text x="0" y="${ust + 14}" font-size="12" font-weight="600"
-      fill="currentColor">${kacir(seri.ad)}</text>`;
-    svg += `<text x="0" y="${ust + 30}" font-size="10.5" fill="currentColor" opacity="0.5"
-      >${kacir(seri.aralikMetni || `${seri.bicim(enAz)} – ${seri.bicim(enCok)}`)}</text>`;
-
-    const noktalar = seri.noktalar.filter((n) => n.deger !== null);
-    svg += `<polyline points="${noktalar.map((n) => `${xOf(n.tarih)},${yOf(n.deger)}`).join(" ")}"
-      fill="none" stroke="${seri.renk}" stroke-width="2.5" stroke-linejoin="round"
-      stroke-linecap="round"/>`;
-    noktalar.forEach((n) => {
-      svg += `<circle cx="${xOf(n.tarih)}" cy="${yOf(n.deger)}" r="4" fill="${seri.renk}"/>`;
-      svg += `<text x="${xOf(n.tarih)}" y="${yOf(n.deger) - 9}" font-size="10.5"
-        text-anchor="middle" fill="currentColor" font-weight="600" opacity="0.85"
-        >${kacir(seri.bicim(n.deger))}</text>`;
+  _ertelenmisKur(() => {
+    gecerli.forEach((seri, sira) => {
+      const canvas = document.getElementById(idler[sira]);
+      if (!canvas) return;
+      const seriTarihi = new Map(seri.noktalar.map((n) => [n.tarih, n.deger]));
+      const renk = renkCoz(seri.renk);
+      AKTIF_GRAFIKLER.push(new Chart(canvas, {
+        type: "line",
+        data: {
+          labels: tarihler.map((t) => t.slice(0, 4)),
+          datasets: [{
+            data: tarihler.map((t) => (seriTarihi.has(t) ? seriTarihi.get(t) : null)),
+            borderColor: renk, backgroundColor: renk,
+            spanGaps: true, tension: 0.25, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2.5,
+          }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 250 },
+          interaction: { intersect: false, mode: "index" },
+          scales: {
+            y: { display: false },
+            x: {
+              display: sira === gecerli.length - 1,
+              grid: { display: false },
+              ticks: { color: renkCoz("var(--sonuk)"), font: { size: 11 } },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => ctx.parsed.y === null ? "veri yok" : seri.bicim(ctx.parsed.y),
+              },
+            },
+          },
+        },
+      }));
     });
   });
 
-  tarihler.forEach((tarih) => {
-    svg += `<text x="${xOf(tarih)}" y="${yukseklik - 6}" font-size="11.5" text-anchor="middle"
-      fill="currentColor" opacity="0.5">${kacir(tarih.slice(0, 4))}</text>`;
-  });
-
-  return svg + "</svg>";
+  return html;
 }
 
 /** Sütun grafiği — reel tutar serisi için. */
 function sutunGrafik(noktalar, birim, genislik = 700) {
   if (!noktalar.length) return "";
-  const yukseklik = 200, altPay = 28, ustPay = 20;
-  const enCok = Math.max(...noktalar.map((n) => n.deger));
-  const bosluk = 16;
-  const sutunG = (genislik - bosluk * (noktalar.length - 1)) / noktalar.length;
+  const id = `grafik-${++GRAFIK_SAYAC}`;
 
-  let svg = `<svg class="grafik" viewBox="0 0 ${genislik} ${yukseklik}" role="img"
-    aria-label="Enflasyona göre düzeltilmiş gelir">`;
-  noktalar.forEach((nokta, sira) => {
-    const oran = enCok > 0 ? nokta.deger / enCok : 0;
-    const yuksek = Math.max(4, oran * (yukseklik - altPay - ustPay));
-    const x = sira * (sutunG + bosluk);
-    const y = yukseklik - altPay - yuksek;
-    svg += `<rect x="${x}" y="${y}" width="${sutunG}" height="${yuksek}" rx="7"
-      fill="var(--vurgu)"/>`;
-    svg += `<text x="${x + sutunG / 2}" y="${y - 7}" font-size="13" font-weight="700"
-      text-anchor="middle" fill="currentColor">${kacir(para(nokta.deger, birim))}</text>`;
-    svg += `<text x="${x + sutunG / 2}" y="${yukseklik - 8}" font-size="11.5"
-      text-anchor="middle" fill="currentColor" opacity="0.5"
-      >${kacir(nokta.tarih.slice(0, 4))}</text>`;
+  _ertelenmisKur(() => {
+    const canvas = document.getElementById(id);
+    if (!canvas) return;
+    AKTIF_GRAFIKLER.push(new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels: noktalar.map((n) => n.tarih.slice(0, 4)),
+        datasets: [{
+          data: noktalar.map((n) => n.deger),
+          backgroundColor: renkCoz("var(--vurgu)"),
+          borderRadius: 5, maxBarThickness: 64,
+        }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 250 },
+        scales: {
+          y: { display: false },
+          x: { grid: { display: false }, ticks: { color: renkCoz("var(--sonuk)"), font: { size: 11.5 } } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => para(ctx.parsed.y, birim) } },
+        },
+      },
+    }));
   });
-  return svg + "</svg>";
+
+  return `<div class="grafik-kutu grafik-kutu-buyuk" style="max-width:${genislik}px">
+      <canvas id="${id}"></canvas>
+    </div>`;
 }
 
 /* ═══════════════════════════════════════════════════════════ durum barı */
@@ -504,6 +573,8 @@ function durumKarti(baslik, aciklama, komut, hatali = false, taramaEvreni = null
 }
 
 async function yonlendir() {
+  GRAFIK_NESIL++;
+  grafikleriTemizle();
   const { ekran, sembol } = hashCoz();
   document.querySelectorAll("#nav button").forEach((d) => {
     if (d.dataset.ekran === ekran) d.setAttribute("aria-current", "page");
@@ -2253,6 +2324,11 @@ document.getElementById("tarama-iptal").addEventListener("click", taramaIptalEt)
 window.addEventListener("hashchange", yonlendir);
 
 terimBalonuKur();
-sozlukYukle().then(() => { if (SOZLUK) yonlendir(); });  // balonlar için tazele
-durumuYukle().then(yonlendir);
+// İkisi de bağımsız başlatılır (paralel ağ isteği), ama ekran TEK SEFERDE
+// çizilir. Eskiden ayrı ayrı `.then(yonlendir)` çağrılıyordu — SVG'de
+// zararsızdı (iki kez çizmek sadece fazladan iş), Chart.js'te yarış durumu
+// yaratıyordu: ikinci çağrının temizliği ilkinin grafikleri henüz
+// kurulmadan çalışıyor, sonra ilkinin ertelenmiş kurulumu araya girip artık
+// ekranda olmayan canvas'lara bağlanıyordu (hayalet grafik/bellek sızıntısı).
+Promise.all([sozlukYukle(), durumuYukle()]).then(() => yonlendir());
 aramayiKur();

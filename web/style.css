@@ -667,8 +667,14 @@ td.metin, th.metin { text-align: left; font-variant-numeric: normal; }
 
 mark { background: var(--sari-soft); color: var(--tertiary); padding: 0 4px; border-radius: 4px; font-weight: 600; }
 
-/* ── Grafikler (inline SVG) ────────────────────────────────────────── */
-.grafik { width: 100%; height: auto; display: block; }
+/* ── Grafikler (Chart.js — web/vendor/chart.umd.min.js) ─────────────── */
+.grafik-serit + .grafik-serit { margin-top: 10px; }
+.grafik-serit-bas {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12.5px; font-weight: 600; margin-bottom: 4px;
+}
+.grafik-kutu { position: relative; width: 100%; height: 90px; }
+.grafik-kutu-buyuk { height: 200px; }
 .aciklama { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); margin-top: 12px; }
 .aciklama span { display: flex; align-items: center; gap: 6px; }
 .nokta { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
