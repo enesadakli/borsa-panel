@@ -1,6 +1,6 @@
 """Önbellek anahtarı ve korunan uç teli testleri.
 
-İki farklı konuyu bir araya getiriyor çünkü ikisi de aynı sınıftan: bir
+Üç farklı konuyu bir araya getiriyor çünkü hepsi aynı sınıftan: bir
 kayıt/liste güncellenince başka bir yerin bunu **fark etmemesi** riski.
 
 1. `yahoo.fundamentals()`'ın önbellek anahtarı istenen alan listesini
@@ -10,6 +10,10 @@ kayıt/liste güncellenince başka bir yerin bunu **fark etmemesi** riski.
 2. `KORUNAN_UCLAR`, `server.py`'de admin anahtarıyla korunması gereken uçların
    listesi. Yeni bir `/api/llm-*` ucu eklenip bu listeye eklenmeyi unutursa
    hiçbir test bunu yakalamıyordu.
+3. `yahoo.profile()`'ın önbellek kaydı da aynı tuzağı taşıyordu — F13 C2'de
+   `price_time`/`market_state`/`gmt_offset_ms` eklendi, ama diskte 1116 eski
+   kayıt var ve hiçbiri bu alanları içermiyor. Burada çözüm alan listesi değil
+   basit bir `_surum` sayacı: kayıt sürümü kod sürümüyle eşleşmezse ıskalanır.
 """
 
 from __future__ import annotations
@@ -84,6 +88,45 @@ def test_fundamentals_kaydeder_ne_istendigini():
                   "fields": {}})
     kayit = c.get_record("fundamentals", "SISE.IS__annual")
     assert kayit["istenen_alanlar"] == ["NetIncome", "TotalRevenue"]
+
+
+# --------------------------------------------------------------- profil sürümü
+
+
+def test_eski_surumlu_profil_kaydi_reddediliyor():
+    """`_surum` alanı olmayan (F13 C2 öncesi) ya da eski sürümlü bir kayıt
+    isabet saymamalı — aksi hâlde `price_time` gibi yeni alanlar sembol
+    görülene kadar sessizce `None` kalır (`CashDividendsPaid`'in 4 yıl
+    saklanmasına yol açan sınıfın aynısı)."""
+    from core.yahoo import PROFIL_SURUM
+
+    c = _gecici_cache()
+    c.set_record("profile", "TEST.IS", {"symbol": "TEST.IS", "last_price": 41.74})
+    kayit = c.get_record("profile", "TEST.IS")
+    assert kayit.get("_surum") != PROFIL_SURUM
+
+
+def test_guncel_surumlu_profil_kaydi_kabul_ediliyor():
+    from core.yahoo import PROFIL_SURUM
+
+    c = _gecici_cache()
+    c.set_record("profile", "TEST.IS",
+                 {"symbol": "TEST.IS", "last_price": 41.74, "_surum": PROFIL_SURUM})
+    kayit = c.get_record("profile", "TEST.IS")
+    assert kayit.get("_surum") == PROFIL_SURUM
+
+
+# --------------------------------------------------------------- ttl=0 tazeleme
+
+
+def test_ttl_sifir_her_zaman_iskaliyor():
+    """`ttl=0` her koşulda önbelleği ıskalamalı — "Fiyatı tazele" (F13 C5)
+    mekanizmasının temeli bu; `cache.py`'de ayrı bir kod yolu değil,
+    `get_record`'un doğal davranışı."""
+    c = _gecici_cache()
+    c.set_record("profile", "TEST.IS", {"symbol": "TEST.IS", "last_price": 41.74})
+    assert c.get_record("profile", "TEST.IS", ttl=0) is None
+    assert c.get_record("profile", "TEST.IS") is not None  # ttl=None hâlâ isabet
 
 
 # --------------------------------------------------------- korunan uç teli

@@ -9,6 +9,8 @@ Türkçe kural: binlik ayracı nokta, ondalık ayracı virgül.
 
 from __future__ import annotations
 
+import time
+
 # Altman Z-Skoru 2,99 üstünü modelin tanımına göre tek bir "güvenli bölge"
 # sayar; bu eşiğin çok ötesindeki farklar (5 ile 60 arası gibi) anlam
 # taşımaz — formülde piyasa değeri/toplam yükümlülük terimi, yükümlülük
@@ -77,6 +79,36 @@ def para(value, ondalik: int = 0) -> str:
         if abs(value) >= limit:
             return f"{sayi(value / limit, 2)}{ek}"
     return sayi(value, ondalik)
+
+
+def fiyat_zamani(price_time, gmt_offset_ms, market_state) -> str | None:
+    """Yahoo'nun fiyat zaman damgasını okunur bir etikete çevirir.
+
+    `price_time` yoksa `None` döner — çağıran taraf "zamanı bilinmiyor"
+    yazmalı, **asla bugünün saatiyle değiştirmemeli**; sessizce yanlış bir
+    zaman göstermek, hiç zaman göstermemekten kötüdür.
+
+    `zoneinfo` kasıtlı kullanılmıyor: Windows'ta `tzdata` pip paketi ister,
+    projenin sıfır-pip kuralını kırar. Ham ofset aritmetiği yeterli —
+    borsanın kendi yerel saatini üretir, sistem saat dilimini hiç karıştırmadan.
+    `gmt_offset_ms` yoksa UTC'ye düşülür ve etikete "(UTC)" eklenir — görünür
+    belirsizlik, sessizce yanlış saatten iyidir.
+    """
+    if price_time is None:
+        return None
+    if gmt_offset_ms is None:
+        yerel = time.gmtime(price_time)
+        ek = " (UTC)"
+    else:
+        yerel = time.gmtime(price_time + gmt_offset_ms / 1000)
+        ek = ""
+
+    tarih = f"{yerel.tm_year:04d}-{yerel.tm_mon:02d}-{yerel.tm_mday:02d}"
+    saat = f"{yerel.tm_hour:02d}:{yerel.tm_min:02d}"
+
+    if market_state == "REGULAR":
+        return f"açık seans, {saat} itibarıyla{ek}"
+    return f"{tarih} {saat} kapanışı{ek}"
 
 
 def para_kisa(value) -> str:

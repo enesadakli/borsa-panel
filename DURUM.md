@@ -132,7 +132,7 @@ kayboluyordu. Tam plan: `.claude/plans/uan-llm-raporu-peki-sparkling-bonbon.md`
 (en üstte, "F13" başlığı altında) — gerekçe, ölçülen veriler, 6 adımın
 (C1-C6) tamamı orada.
 
-**C1 — TAMAMLANDI, commit bekliyor.** `core/risk.py:symbol_price_stats()`
+**C1 — TAMAMLANDI, push'landı (`87540de`).** `core/risk.py:symbol_price_stats()`
 artık `client.cache.closes()` (doğrudan, tazelemeyen önbellek okuması) yerine
 `client.series(symbol, first_range="5y")` kullanıyor — `_returns()` ile aynı
 yol. Canlı doğrulandı: `GARAN.IS`'in önceden hiç `series/` kaydı yoktu, artık
@@ -142,15 +142,36 @@ yol. Canlı doğrulandı: `GARAN.IS`'in önceden hiç `series/` kaydı yoktu, ar
 `core/llm_rapor.py:_fiyat()`'in `if not f.get("available"): return []` satırı
 artık başlık + `- Bu bölüm hesaplanamadı: {sebep}` basıyor (paket'te `fiyat`
 anahtarı hiç yoksa hâlâ `[]` — "denendi, bulunamadı" ile "hiç denenmedi"
-ayrımı korunuyor).
+ayrımı korunuyor). Yeni testler: `tests/test_fiyat_serisi.py` (6 test).
 
-Yeni testler: `tests/test_fiyat_serisi.py` (6 test — sahte istemcide `.cache`
-öznitelik yok, eski koda dönülseydi `AttributeError` ile düşerdi) +
-`tests/test_llm_rapor.py`'ye 2 test. Süit: 154 geçti, 0 düştü. `smoke.py` da
-geçti.
+**C2 — TAMAMLANDI, commit bekliyor.** `core/yahoo.py:profile()` artık
+`price_time` (`regularMarketTime`), `market_state`, `gmt_offset_ms`
+(`gmtOffSetMilliseconds`) alanlarını da taşıyor — önceden Yahoo bunları
+veriyordu ama kod atıyordu, fiyatın hiçbir kimliği yoktu. Sözlük kurma mantığı
+saf `_profil_kaydi(symbol, block)` fonksiyonuna çıkarıldı (ağsız test
+edilebilir). `core/bicim.py:fiyat_zamani()` bu üç alanı okunur bir etikete
+çeviriyor: kapalıysa `"2026-07-31 18:09 kapanışı"`, açık seansta `"açık seans,
+18:09 itibarıyla"` (`"kapanış"` demiyor — seans açıkken o bir anlık fiyat),
+zaman bilinmiyorsa `None` (bugünün saati asla yerine konmuyor), ofset
+bilinmiyorsa UTC'ye düşüp etikete `"(UTC)"` ekliyor. `zoneinfo` kasıtlı
+kullanılmadı (Windows'ta `tzdata` pip paketi ister, sıfır-pip kuralını kırar).
 
-**Kalan: C2-C6.** Fiyatın kimliği (zaman damgası), portföy/kur tazeliği,
-"Fiyatı tazele" düğmesi, durum çubuğu tutarlılığı — hepsi plan dosyasında.
+**Önbellek sürümlemesi bu commit'te zorunluydu ve gerçekten işe yaradı:**
+diskteki 1116 profil kaydının hiçbiri yeni alanları içermiyordu. `PROFIL_SURUM`
+sayacı eklenip isabet ona bağlandı — canlı doğrulandı: SISE.IS'in eski kaydında
+`_surum` yoktu, `profile()` çağrılınca otomatik yeniden çekildi ve yeni alanlar
+geldi. `TTL_FIYAT = 15 dakika` sabiti de eklendi (C3'te kullanılacak, henüz
+hiçbir çağrı yerine bağlanmadı — `TTL_PROFIL` genel taramalarda hâlâ 12 saat).
+
+Yeni testler: `tests/test_fiyat_kimligi.py` (8 test) + `tests/test_onbellek.py`'ye
+3 test (`_surum` reddi/kabulü, `ttl=0` her zaman ıskalıyor — "Fiyatı tazele"nin
+temeli). **Not:** bu commit'in test süiti ilk kez uzun sürdü çünkü `PROFIL_SURUM`
+artışı tüm evrendeki profil kayıtlarını geçersiz kıldı; testlerin dokunduğu
+semboller bir kez daha canlı çekildi. Tek seferlik maliyet, plan bunu öngörmüştü.
+
+**Kalan: C3-C6.** Skor kartı/rapor etiketleri (`fiyat_zamani`'yi gerçekten
+kullanan yer C3'te), portföy/kur tazeliği, "Fiyatı tazele" düğmesi, durum
+çubuğu tutarlılığı — hepsi plan dosyasında.
 Kapsam dışı bırakılan: Yahoo'nun kendi oranlarını (P/E, P/B, ROE) yanına
 koymak (aynı kaynağın ikinci ifadesi, bağımsız doğrulama değil — reddedildi),
 KAP entegrasyonu (XBRL eşlemesi riskli, yerine tek satırlık "KAP'ta aç"

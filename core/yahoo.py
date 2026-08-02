@@ -131,6 +131,17 @@ PROFIL_MODULLERI = (
 TTL_PROFIL = 12 * cache_mod.SAAT
 TTL_MALI_TABLO = 7 * cache_mod.GUN
 TTL_SERI_TAZELIK = 15 * cache_mod.DAKIKA
+#: Gösterim çağrılarında (skor kartı, portföy) kullanılan kısa TTL. Genel
+#: taramalarda (context.build_metric_context, universe.fill_sectors) hâlâ
+#: TTL_PROFIL kullanılır — 616 sembolü 15 dakikada bir yeniden çekmek gereksiz.
+TTL_FIYAT = 15 * cache_mod.DAKIKA
+
+#: `profile()` kaydının şekli değiştiğinde artırılır. Diskteki eski kayıtlar
+#: yeni alanları (`price_time` vb.) hiç içermez; sürüm eşleşmezse önbellek
+#: ıskalanır ve sembol tekrar görüldükçe tembel biçimde yeniden çekilir.
+#: `CashDividendsPaid`'in 4 yıl sessizce eksik kalmasına yol açan sınıfın
+#: aynısı — bu yüzden şekil her değiştiğinde sürüm de değişmeli.
+PROFIL_SURUM = 2
 
 
 def build_ssl_context() -> ssl.SSLContext:
@@ -375,14 +386,14 @@ class YahooClient:
     # ------------------------------------------------------------------ profil
 
     def profile(self, symbol: str, ttl: float | None = TTL_PROFIL) -> dict:
-        """Sektör, para birimi, piyasa değeri ve temel oranlar.
+        """Sektör, para birimi, piyasa değeri, temel oranlar ve fiyatın zamanı.
 
         Dikkat: `financial_currency` mali tabloların para birimi,
         `price_currency` hissenin işlem gördüğü para birimi. THYAO'da bunlar
         farklıdır (USD tablo / TRY fiyat) ve oran hesaplarında karıştırılamaz.
         """
         cached = self.cache.get_record("profile", symbol, ttl=ttl)
-        if cached is not None:
+        if cached is not None and cached.get("_surum") == PROFIL_SURUM:
             return cached
 
         query = urllib.parse.urlencode({"modules": ",".join(PROFIL_MODULLERI)})
@@ -392,31 +403,8 @@ class YahooClient:
         results = ((payload.get("quoteSummary") or {}).get("result")) or []
         if not results:
             raise YahooNotFound(f"{symbol}: quoteSummary sonucu boş")
-        block = results[0]
 
-        asset = block.get("assetProfile") or {}
-        price = block.get("price") or {}
-        financial = block.get("financialData") or {}
-        summary = block.get("summaryDetail") or {}
-        stats = block.get("defaultKeyStatistics") or {}
-
-        profile = {
-            "symbol": symbol,
-            "name": price.get("longName") or price.get("shortName"),
-            "sector": asset.get("sector"),
-            "industry": asset.get("industry"),
-            "country": asset.get("country"),
-            "employees": asset.get("fullTimeEmployees"),
-            "financial_currency": financial.get("financialCurrency"),
-            "price_currency": price.get("currency"),
-            "market_cap": _raw(price.get("marketCap")),
-            "last_price": _raw(price.get("regularMarketPrice")),
-            "trailing_pe": _raw(summary.get("trailingPE")),
-            "price_to_book": _raw(stats.get("priceToBook")),
-            "return_on_equity": _raw(financial.get("returnOnEquity")),
-            "dividend_yield": _raw(summary.get("dividendYield")),
-            "shares_outstanding": _raw(stats.get("sharesOutstanding")),
-        }
+        profile = _profil_kaydi(symbol, results[0])
         self.cache.set_record("profile", symbol, profile)
         return profile
 
@@ -597,6 +585,44 @@ def _raw(node):
     if isinstance(node, dict):
         return node.get("raw")
     return node
+
+
+def _profil_kaydi(symbol: str, block: dict) -> dict:
+    """`quoteSummary` sonuç bloğundan profil sözlüğü kurar. Ağsız, saf.
+
+    `price_time` (`regularMarketTime`, Unix epoch) ve `market_state`
+    (`"REGULAR"`/`"CLOSED"`/…) önceden atılıyordu; fiyatın hiçbir kimliği
+    yoktu ve arayüz onu her koşulda "son kapanış" diye etiketliyordu — seans
+    açıkken bu yanlıştı, o an bir anlık fiyattır. `gmt_offset_ms` olmadan
+    `price_time` yerel saate çevrilemez; ikisi birlikte tutuluyor.
+    """
+    asset = block.get("assetProfile") or {}
+    price = block.get("price") or {}
+    financial = block.get("financialData") or {}
+    summary = block.get("summaryDetail") or {}
+    stats = block.get("defaultKeyStatistics") or {}
+
+    return {
+        "symbol": symbol,
+        "name": price.get("longName") or price.get("shortName"),
+        "sector": asset.get("sector"),
+        "industry": asset.get("industry"),
+        "country": asset.get("country"),
+        "employees": asset.get("fullTimeEmployees"),
+        "financial_currency": financial.get("financialCurrency"),
+        "price_currency": price.get("currency"),
+        "market_cap": _raw(price.get("marketCap")),
+        "last_price": _raw(price.get("regularMarketPrice")),
+        "trailing_pe": _raw(summary.get("trailingPE")),
+        "price_to_book": _raw(stats.get("priceToBook")),
+        "return_on_equity": _raw(financial.get("returnOnEquity")),
+        "dividend_yield": _raw(summary.get("dividendYield")),
+        "shares_outstanding": _raw(stats.get("sharesOutstanding")),
+        "price_time": _raw(price.get("regularMarketTime")),
+        "market_state": price.get("marketState"),
+        "gmt_offset_ms": _raw(price.get("gmtOffSetMilliseconds")),
+        "_surum": PROFIL_SURUM,
+    }
 
 
 def _type_of(block: dict) -> str | None:
