@@ -62,7 +62,7 @@ python server.py
 | **Piyasa** | Evrenin sayısal fotoğrafı: medyanlar, F-Skoru histogramı, sektör tablosu, skoru en çok değişen şirketler |
 | **Karşılaştır** | İki veya üç şirketi yan yana koyar; dönemleri farklıysa (ör. farklı mali yıl sonu) veya biri bayatsa açıkça uyarır, büyüme/metrik/F-Skoru kriter tablolarını sütun sütun gösterir |
 
-Arayüz açık/koyu temayı işletim sisteminden alır. Tüm sayılar Türkçe biçimde
+Tüm sayılar Türkçe biçimde
 (binlik nokta, ondalık virgül) ve tablo hizasında gösterilir. F-Skoru, PD/DD,
 FAVÖK gibi terimlerin üstüne gelince (mobilde dokununca) sade bir açıklama
 balonu çıkar — kaynağı tek bir sözlük (`core/sozluk.py`), `/api/sozluk`
@@ -117,7 +117,7 @@ python tools/kalibrasyon.py bist us # bayrak eşiklerini evrenler arasında öl�
 python tools/anlati_denetim.py bist # anlatı cümlelerini gürültü/çelişki için tara
 python tools/llm_rapor.py SISE.IS   # LLM-okunur Markdown rapor
 python smoke.py                     # veri katmanı duman testi
-python tests/run.py                 # testler (85 test)
+python tests/run.py                 # testler (146 test)
 ```
 
 ### Terminalden kullanım
@@ -159,7 +159,7 @@ core/
   inflation.py      EVDS + BLS + Dünya Bankası, reel hesaplar
   health.py         F-Skoru, Altman Z, borç, marj, kâr kalitesi
   reports.py        çeyreklik/yıllık karşılaştırma + yorum
-  flags.py          6 kırmızı + 6 sarı kural
+  flags.py          6 kırmızı + 6 sarı + 1 bilgi kural
   narrative.py      4–6 cümlelik şirket özeti
   context.py        sektör medyanı, yüzdelik, trend
   screener.py       yapısal filtre motoru (eval yok)
@@ -168,7 +168,13 @@ core/
   market.py         piyasa genel bakışı (yorum cümlesi yok)
   sozluk.py         terim sözlüğü — tek kaynak (arayüz balonları + UYARI)
   llm_rapor.py      LLM-okunur Markdown rapor (olustur/bicimlendir ayrımı)
-server.py           yerel HTTP sunucusu + JSON API (17 uç)
+server.py           yerel HTTP sunucusu + JSON API (21 uç)
+web/
+  index.html        tek sayfa iskelet
+  app.js            altı ekran, arama, tarayıcı kural kurucu, grafikler
+  style.css         tema/token'lar (tek koyu tema)
+  vendor/           Chart.js — projenin tek harici JS bağımlılığı, lokale
+                    indirilmiş (bkz. Kurulum)
 tools/
   tarama.py         evren tarayıcı (bağlam tablolarını doldurur)
   rapor.py          terminalden tam şirket raporu
@@ -176,6 +182,7 @@ tools/
   kalibrasyon.py    bayrak eşiklerini evrenler arasında ölçer
   anlati_denetim.py anlatı cümlelerini gürültü/çelişki için tüm evrende tarar
   llm_rapor.py      terminalden LLM-okunur Markdown rapor
+  run_canli_sinav.py yerel bir LLM'in raporu doğru okuyup okumadığını sınar
 tests/run.py        test koşucusu (pytest gerekmez)
 ```
 
@@ -277,6 +284,21 @@ python tests/run.py
 - `test_llm_rapor.py` — Markdown rapordaki bölüm kapsamını, Türkçe ondalık
   sızıntısı olmadığını ve admin kilidinin üç durumunu (anahtar yok/yanlış/doğru)
   test eder
+- `test_saglik_sekil.py` — `core/health.py`'deki her analiz fonksiyonunun
+  (Altman Z, değerleme, kâr kalitesi, borç…) banka/boş-tablo/tek-dönem gibi
+  tüm dallarda **aynı anahtar kümesini** döndürdüğünü genel bir muhafızla
+  kilitler — dala göre alan kaybolmasını yapısal olarak imkânsız kılar
+- `test_nakit_metrikleri.py` — FCF marjı, FCF payout ve işletme sermayesi
+  değişimini sentetik verilerle test eder; Yahoo'nun temettüyü negatif
+  vermesinden doğan işaret hatasını ve banka/boş-tablo yollarının metrik
+  kaybetmediğini kilitler
+- `test_onbellek.py` — mali tablo önbelleğinin istenen alan listesini bilip
+  bilmediğini (yeni kalem eklenince eski kayıt reddediliyor mu) ve admin
+  korumalı uçların routing tablosuyla tutarlılığını test eder
+
+## Lisans
+
+[MIT](LICENSE) — kullan, değiştir, dağıt; garanti yok.
 
 ---
 
