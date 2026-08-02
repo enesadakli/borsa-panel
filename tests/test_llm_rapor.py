@@ -539,6 +539,29 @@ def test_bolum_filtresi():
     assert len(metin) < len(LLM.bicimlendir(_sentetik_paket())) / 2
 
 
+def test_fiyat_bolumu_sebepsiz_kaybolmuyor():
+    """`fiyat.available = False` iken bölüm hiç iz bırakmadan silinmemeli.
+
+    Eskiden `if not f.get("available"): return []` idi — 1108/1116 şirkette
+    (fiyat serisi önbelleği doğrudan okunduğu için) bu dal tetikleniyor ve
+    okuyucu "hiç sorulmamış" ile "sorulmuş, bulunamamış" ayrımını
+    yapamıyordu. Artık başlık + sebep basılıyor.
+    """
+    paket = copy.deepcopy(_sentetik_paket())
+    paket["fiyat"] = {"available": False, "reason": "Fiyat serisi çekilemedi (ağ/kaynak hatası)"}
+    metin = LLM.bicimlendir(paket)
+    assert "## Fiyat serisi" in metin
+    assert "Bu bölüm hesaplanamadı: Fiyat serisi çekilemedi (ağ/kaynak hatası)" in metin
+
+
+def test_fiyat_bolumu_paket_hic_yoksa_bos():
+    """`fiyat` anahtarı hiç yoksa (hiç denenmemiş) bölüm hâlâ atlanabilir —
+    bu, "denendi ama başarısız" ile "hiç işlenmedi" ayrımını korur."""
+    paket = copy.deepcopy(_sentetik_paket())
+    del paket["fiyat"]
+    assert LLM._fiyat(paket) == []
+
+
 def test_bolum_adlari_kaydi_eksiksiz():
     """Her bölüm üreticisi kayıtta olmalı — kayda girmeyen bölüm filtrelenemez."""
     kaynak = inspect.getsource(LLM)

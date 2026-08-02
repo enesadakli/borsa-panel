@@ -1031,7 +1031,10 @@ def _fiyat(paket: dict) -> list[str]:
     """
     f = paket.get("fiyat") or {}
     if not f.get("available"):
-        return []
+        if not f:
+            return []
+        sebep = f.get("reason") or "sebep belirtilmedi"
+        return ["## Fiyat serisi", "", f"- Bu bölüm hesaplanamadı: {sebep}", ""]
     para_birimi = f.get("currency") or ""
     out = ["## Fiyat serisi", ""]
     out.append(

@@ -316,11 +316,19 @@ def symbol_price_stats(client, symbol: str, days: int = ISLEM_GUNU) -> dict:
 
     Ağ hatası veya yetersiz geçmişte `available: False` döner; çağıran taraf
     bölümü sessizce atlar, rapor bu yüzden hiç düşmez.
+
+    `client.series()` kullanılır (`_returns()` ile aynı yol) — önbelleği
+    doğrudan okumak yerine gerektiğinde tazeler. Önbellek doğrudan okunursa
+    (eski hâli) yalnızca daha önce farklı bir sebeple (ör. `_returns()`)
+    çekilmiş sembollerde veri bulunur; ilk kez bakılan bir sembolde bölüm
+    hiçbir iz bırakmadan kaybolurdu.
     """
     try:
-        kapanislar = client.cache.closes(symbol)
+        kapanislar = client.series(symbol, first_range="5y")
+    except YahooError:
+        return {"available": False, "reason": "Fiyat serisi çekilemedi (ağ/kaynak hatası)"}
     except Exception:  # noqa: BLE001 — fiyat verisi bölümü isteğe bağlı, rapor düşmemeli
-        return {"available": False, "reason": "Fiyat serisi okunamadı"}
+        return {"available": False, "reason": "Fiyat serisi okunurken beklenmeyen bir hata oluştu"}
 
     kapanislar = kapanislar[-days:]
     if len(kapanislar) < MIN_ORTAK_GUN:

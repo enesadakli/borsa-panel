@@ -122,6 +122,40 @@ README.md → Kurulum bölümünde.
   kullanıcı arayüzü metnini değil.
 - Süit: 146 geçti, 0 düştü.
 
+## F13 — Veriye güven: varsayılan olarak doğru (devam ediyor)
+
+Anass birikimini bu araçla değerlendirmek istiyor ama portföye tek işlem
+girmedi — sebep: *"gerçek ve güncel verileri çektiğinden emin olamıyorum."*
+Şüphe haklı çıktı: ölçünce `series/` önbelleğinde yalnızca 9 dosya (smoke.py'nin
+sembol listesi) bulundu, 1108/1116 şirkette fiyat serisi bölümü sessizce
+kayboluyordu. Tam plan: `.claude/plans/uan-llm-raporu-peki-sparkling-bonbon.md`
+(en üstte, "F13" başlığı altında) — gerekçe, ölçülen veriler, 6 adımın
+(C1-C6) tamamı orada.
+
+**C1 — TAMAMLANDI, commit bekliyor.** `core/risk.py:symbol_price_stats()`
+artık `client.cache.closes()` (doğrudan, tazelemeyen önbellek okuması) yerine
+`client.series(symbol, first_range="5y")` kullanıyor — `_returns()` ile aynı
+yol. Canlı doğrulandı: `GARAN.IS`'in önceden hiç `series/` kaydı yoktu, artık
+çekiliyor ve LLM raporunda `## Fiyat serisi` bölümü doğru veriyle çıkıyor.
+
+`YahooError` ayrı yakalanıp "ağ/kaynak hatası" sebebiyle işaretleniyor;
+`core/llm_rapor.py:_fiyat()`'in `if not f.get("available"): return []` satırı
+artık başlık + `- Bu bölüm hesaplanamadı: {sebep}` basıyor (paket'te `fiyat`
+anahtarı hiç yoksa hâlâ `[]` — "denendi, bulunamadı" ile "hiç denenmedi"
+ayrımı korunuyor).
+
+Yeni testler: `tests/test_fiyat_serisi.py` (6 test — sahte istemcide `.cache`
+öznitelik yok, eski koda dönülseydi `AttributeError` ile düşerdi) +
+`tests/test_llm_rapor.py`'ye 2 test. Süit: 154 geçti, 0 düştü. `smoke.py` da
+geçti.
+
+**Kalan: C2-C6.** Fiyatın kimliği (zaman damgası), portföy/kur tazeliği,
+"Fiyatı tazele" düğmesi, durum çubuğu tutarlılığı — hepsi plan dosyasında.
+Kapsam dışı bırakılan: Yahoo'nun kendi oranlarını (P/E, P/B, ROE) yanına
+koymak (aynı kaynağın ikinci ifadesi, bağımsız doğrulama değil — reddedildi),
+KAP entegrasyonu (XBRL eşlemesi riskli, yerine tek satırlık "KAP'ta aç"
+bağlantısı düşünülüyor).
+
 ## Sıradaki Adımlar (Gelecek Oturumlar)
 
 1. `nwc_change`/`fcf_margin`/`fcf_payout` rapora bağlı
