@@ -539,46 +539,118 @@ async function taramaIptalEt() {
 
 let aramaZaman = null;
 
+/* WAI-ARIA combobox deseni: odak her zaman girdide kalır, aktif seçenek
+ * aria-activedescendant ile bildirilir; sonuç sayısı canlı bölgede okunur. */
 function aramayiKur() {
   const girdi = document.getElementById("arama-girdi");
   const kutu = document.getElementById("oneriler");
-  const kapat = () => { kutu.innerHTML = ""; };
+  const durum = document.getElementById("arama-durum");
+  let secenekler = [];      // [{ sembol, el }]
+  let aktif = -1;
+  let istekNo = 0;          // geç gelen eski yanıtlar yenisini ezmesin
+
+  const aktifYap = (index) => {
+    secenekler.forEach((s, i) => s.el.setAttribute("aria-selected", String(i === index)));
+    aktif = index;
+    if (index >= 0) {
+      girdi.setAttribute("aria-activedescendant", secenekler[index].el.id);
+      secenekler[index].el.scrollIntoView({ block: "nearest" });
+    } else {
+      girdi.removeAttribute("aria-activedescendant");
+    }
+  };
+
+  const kapat = () => {
+    istekNo++;
+    kutu.innerHTML = "";
+    kutu.hidden = true;
+    secenekler = [];
+    aktif = -1;
+    girdi.setAttribute("aria-expanded", "false");
+    girdi.removeAttribute("aria-activedescendant");
+  };
+
+  const goster = (html, bildiri) => {
+    kutu.innerHTML = html;
+    kutu.hidden = false;
+    girdi.setAttribute("aria-expanded", "true");
+    secenekler = [...kutu.querySelectorAll("[role=option][data-sembol]")]
+      .map((el) => ({ sembol: el.dataset.sembol, el }));
+    aktifYap(-1);
+    durum.textContent = bildiri;
+  };
+
+  const sec = (sembol) => {
+    girdi.value = "";
+    kapat();
+    aramadanSecildi(sembol);
+  };
 
   girdi.addEventListener("input", () => {
     clearTimeout(aramaZaman);
     const sorgu = girdi.value.trim();
-    if (sorgu.length < 2) return kapat();
+    if (sorgu.length < 2) { kapat(); durum.textContent = ""; return; }
+    const no = ++istekNo;
     aramaZaman = setTimeout(async () => {
       try {
         const sonuc = await API.al(`/api/ara?q=${encodeURIComponent(sorgu)}`);
-        kutu.innerHTML = sonuc.sonuclar.length
-          ? sonuc.sonuclar.map((s) => `<button type="button" data-sembol="${kacir(s.symbol)}">
+        if (no !== istekNo) return;
+        const liste = sonuc.sonuclar;
+        goster(liste.length
+          ? liste.map((s, i) => `<div role="option" id="oneri-${i}" aria-selected="false"
+                data-sembol="${kacir(s.symbol)}">
                 <b>${kacir(s.symbol)}</b>
                 <span>${kacir(s.name || "")} · ${kacir(s.sector || s.market)}</span>
-              </button>`).join("")
-          : `<button type="button" disabled>sonuç yok</button>`;
+              </div>`).join("")
+          : `<div class="oneri-bos">Sonuç yok</div>`,
+          liste.length ? `${liste.length} sonuç. Aşağı okla gezin.` : "Sonuç yok.");
       } catch (hata) {
-        kutu.innerHTML = `<button type="button" disabled>arama hatası: ${kacir(hata.message)}</button>`;
+        if (no !== istekNo) return;
+        goster(`<div class="oneri-bos">Arama yapılamadı: ${kacir(hata.message)}</div>`,
+          `Arama yapılamadı: ${hata.message}`);
       }
     }, 220);
   });
 
-  kutu.addEventListener("click", (olay) => {
-    const dugme = olay.target.closest("button[data-sembol]");
-    if (!dugme) return;
-    girdi.value = ""; kapat();
-    aramadanSecildi(dugme.dataset.sembol);
+  // mousedown: tıklama girdinin odağını kaçırmadan seçsin
+  kutu.addEventListener("mousedown", (olay) => {
+    const secenek = olay.target.closest("[role=option][data-sembol]");
+    if (!secenek) return;
+    olay.preventDefault();
+    sec(secenek.dataset.sembol);
+  });
+  kutu.addEventListener("mousemove", (olay) => {
+    const secenek = olay.target.closest("[role=option][data-sembol]");
+    const index = secenekler.findIndex((s) => s.el === secenek);
+    if (index >= 0 && index !== aktif) aktifYap(index);
   });
 
   girdi.addEventListener("keydown", (olay) => {
-    if (olay.key === "Escape") { girdi.value = ""; kapat(); }
-    if (olay.key === "Enter") {
-      const ilk = kutu.querySelector("button[data-sembol]");
-      const sembol = ilk ? ilk.dataset.sembol : girdi.value.trim().toUpperCase();
-      if (sembol) { girdi.value = ""; kapat(); aramadanSecildi(sembol); }
+    const acik = !kutu.hidden && secenekler.length > 0;
+    if (olay.key === "ArrowDown" && acik) {
+      olay.preventDefault();
+      aktifYap(aktif < secenekler.length - 1 ? aktif + 1 : 0);
+    } else if (olay.key === "ArrowUp" && acik) {
+      olay.preventDefault();
+      aktifYap(aktif > 0 ? aktif - 1 : secenekler.length - 1);
+    } else if (olay.key === "Home" && acik && aktif >= 0) {
+      olay.preventDefault(); aktifYap(0);
+    } else if (olay.key === "End" && acik && aktif >= 0) {
+      olay.preventDefault(); aktifYap(secenekler.length - 1);
+    } else if (olay.key === "Escape") {
+      if (!kutu.hidden) kapat(); else girdi.value = "";
+      durum.textContent = "";
+    } else if (olay.key === "Enter") {
+      olay.preventDefault();
+      const secilen = aktif >= 0 ? secenekler[aktif] : secenekler[0];
+      const sembol = secilen ? secilen.sembol : girdi.value.trim().toUpperCase();
+      if (sembol) sec(sembol);
     }
   });
 
+  girdi.addEventListener("blur", () => setTimeout(() => {
+    if (document.activeElement !== girdi) kapat();
+  }, 0));
   document.addEventListener("click", (olay) => {
     if (!olay.target.closest(".arama")) kapat();
   });

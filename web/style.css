@@ -220,16 +220,16 @@ footer {
   background: var(--yuzey); border-radius: 14px; overflow: hidden auto; max-height: 320px;
   box-shadow: 0 12px 32px -8px rgb(14 20 17 / 0.22), 0 0 0 1px rgb(14 20 17 / 0.06);
 }
-.search-dropdown:empty { display: none; }
-.search-dropdown button {
-  display: block; width: 100%; text-align: left; border: 0; background: none; cursor: pointer;
+.search-dropdown [role="option"], .search-dropdown .oneri-bos {
   padding: 10px 16px; border-bottom: 1px solid var(--cizgi-hafif); font: 14px var(--yazi);
 }
-.search-dropdown button:last-child { border-bottom: 0; }
-.search-dropdown button:hover:not([disabled]), .search-dropdown button:focus { background: var(--iz); outline: none; }
-.search-dropdown button[disabled] { color: var(--murekkep-3); cursor: default; }
+.search-dropdown [role="option"] { cursor: pointer; }
+.search-dropdown > :last-child { border-bottom: 0; }
+.search-dropdown [role="option"][aria-selected="true"] { background: var(--marka-zemin); }
+.search-dropdown [role="option"][aria-selected="true"] b { color: var(--marka-derin); }
+.search-dropdown .oneri-bos { color: var(--murekkep-2); }
 .search-dropdown b { font: 700 14px var(--yazi); }
-.search-dropdown span { display: block; font-size: 12.5px; color: var(--murekkep-3); margin-top: 1px; }
+.search-dropdown span { display: block; font-size: 12.5px; color: var(--murekkep-2); margin-top: 1px; }
 
 .tarama-bar { width: 72px; height: 4px; border-radius: 2px; background: var(--bant); overflow: hidden; display: inline-block; }
 .tarama-bar i { display: block; height: 100%; width: 0; background: var(--marka); }
@@ -647,6 +647,7 @@ details li { margin-bottom: 4px; }
   .topbar { flex-wrap: wrap; gap: 10px 16px; padding-bottom: 4px; }
   .badge#tazelik { order: 3; width: 100%; }
   .search-box { flex: 1 1 100%; order: 4; margin-left: 0; }
+  .search-input { font-size: 16px; }
   .tabs { gap: 20px; }
   .sirket { grid-template-columns: 1fr; }
   .sirket-fiyat { text-align: left; }
