@@ -66,28 +66,9 @@
   --genislik: 1240px;
 
   /* ── Köprü değişkenleri ──────────────────────────────────────────────
-   * app.js bazı yerlerde eski adları satır içi kullanıyor
-   * (style="color:var(--kirmizi)" gibi). Eski adlar yeni tokenlara bağlı. */
-  --kart: var(--zemin);
-  --metin: var(--murekkep);
+   * app.js'te hâlâ satır içi kullanılan eski adlar (var(--vurgu), var(--sonuk)). */
   --sonuk: var(--murekkep-2);
-  --cok-sonuk: var(--murekkep-3);
-  --zebra: rgb(14 20 17 / 0.025);
   --vurgu: var(--marka);
-  --vurgu-soft: var(--marka-zemin);
-  --yesil: var(--pozitif);
-  --yesil-soft: var(--pozitif-zemin);
-  --kirmizi: var(--negatif);
-  --kirmizi-soft: var(--negatif-zemin);
-  --sari: var(--dikkat);
-  --sari-soft: var(--dikkat-zemin);
-  --mono: var(--kod);
-  --govde: var(--yazi);
-  --primary: var(--pozitif);
-  --error: var(--negatif);
-  --text-muted: var(--murekkep-2);
-  --text-main: var(--murekkep);
-  --border: var(--cizgi);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,10 +92,8 @@ body {
 a { color: inherit; text-underline-offset: 3px; }
 button, input, select { font: inherit; color: inherit; }
 
-.tabular-nums { font-variant-numeric: tabular-nums; }
-.text-primary, .yesil { color: var(--pozitif); }
-.text-error, .kirmizi { color: var(--negatif); }
-.text-tertiary { color: var(--murekkep-2); }
+.text-primary { color: var(--pozitif); }
+.text-error { color: var(--negatif); }
 .text-muted, .gri { color: var(--murekkep-2); }
 
 .container { max-width: var(--genislik); margin: 0 auto; padding: 0 28px; }
@@ -218,7 +197,7 @@ footer {
 .btn-primary.ikincil { background: none; color: var(--marka); height: auto; padding: 0; border-radius: 0; }
 .btn-primary.ikincil:hover { background: none; text-decoration: underline; text-underline-offset: 3px; }
 .btn-primary.silik { background: none; color: var(--murekkep-2); box-shadow: inset 0 0 0 1px var(--cizgi); }
-.btn-primary.silik:hover { color: var(--negatif); box-shadow: inset 0 0 0 1px var(--negatif); background: none; }
+.btn-primary.silik:hover { color: var(--murekkep); box-shadow: inset 0 0 0 1px var(--murekkep); background: none; }
 
 .btn-ghost {
   display: inline-flex; align-items: center; height: 34px; padding: 0 14px;
@@ -278,8 +257,6 @@ section { margin-top: 40px; }
 .not { font-size: 13px; color: var(--murekkep-2); line-height: 1.55; max-width: 92ch; }
 .kaynak { font: 400 11px/1.4 var(--kod); color: var(--murekkep-3); margin-top: 5px; letter-spacing: -0.01em; }
 
-/* Eski kart sınıfları (diğer ekranlar): kart değil, çizgili yüzey */
-.card { border-top: 1px solid var(--cizgi); padding: 18px 0; }
 .serit {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   border-top: 1px solid var(--cizgi); border-bottom: 1px solid var(--cizgi);
@@ -307,7 +284,6 @@ section { margin-top: 40px; }
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 32px; align-items: end;
   padding-top: 20px;
 }
-.sirket-ikon { display: none; }
 .sirket-kod {
   display: flex; align-items: center; gap: 8px;
   font: 850 46px/0.95 var(--yazi); font-stretch: 78%; letter-spacing: -0.012em;
@@ -374,14 +350,12 @@ section { margin-top: 40px; }
   font: 850 84px/0.88 var(--yazi); font-stretch: 72%; letter-spacing: -0.02em;
 }
 .reel-deger .isaret-svg { width: 0.4em; height: 0.4em; vertical-align: 0.14em; margin-right: 0.06em; }
-.reel-deger.orta { font-size: 46px; margin-top: 6px; }
 .reel-ayrisma {
   display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 14px;
   font: 500 14px var(--yazi); color: var(--murekkep-2);
 }
 .reel-ayrisma b { color: var(--murekkep); font-weight: 700; }
-.reel-kaynak { font-size: 12px; color: var(--murekkep-3); margin-top: 5px; }
-.reel-ikincil { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--cizgi); }
+.reel-kaynak { font-size: 12px; color: var(--murekkep-2); margin-top: 5px; }
 .reel-yok { font-size: 13px; color: var(--murekkep-2); margin-top: 6px; }
 
 .bayrak-bas { display: flex; align-items: baseline; gap: 12px; font: 750 17px var(--yazi); }
@@ -514,13 +488,6 @@ section { margin-top: 40px; }
 .i-kaldi { color: var(--negatif); }
 .i-eksik, .i-na { color: var(--murekkep-3); }
 
-/* Eski F-Skoru halkası (başka ekranlar kullanırsa) */
-.skor-duzen { display: flex; gap: 22px; align-items: flex-start; flex-wrap: wrap; }
-.skor-cember { width: 96px; height: 96px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; }
-.skor-ic { width: 76px; height: 76px; border-radius: 50%; background: var(--zemin); display: grid; place-items: center; text-align: center; }
-.skor-ic b { font: 850 24px/1 var(--yazi); font-stretch: 80%; }
-.skor-ic span { font-size: 10.5px; color: var(--murekkep-3); }
-
 /* ══════════════════════════════════════════════════════════ cümleler, etiketler */
 
 .cumle { padding: 14px 0; border-top: 1px solid var(--cizgi-hafif); font-size: 15px; line-height: 1.6; max-width: 88ch; }
@@ -544,7 +511,7 @@ mark { background: var(--marka-zemin); color: var(--marka-derin); font-weight: 7
 .uyari-kart .bas .tur { font: 700 10.5px var(--yazi); letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--dolgu); color: var(--murekkep-2); }
 .uyari-kart p { font-size: 13.5px; margin-top: 6px; line-height: 1.55; color: var(--murekkep-2); }
 .u-kirmizi .bas .tur { background: var(--negatif); color: #fff; }
-.u-sari .bas .tur { background: var(--murekkep); color: var(--zemin); }
+.u-sari .bas .tur { background: var(--dikkat); color: #fff; }
 
 /* ══════════════════════════════════════════════════════════ tablolar (genel) */
 
@@ -567,17 +534,12 @@ td.metin, th.metin { text-align: left; }
 .kars-tablo td.deger { font-weight: 700; }
 .kars-tablo .alt-not { display: block; font-size: 11.5px; color: var(--murekkep-3); font-weight: 400; margin-top: 1px; }
 
-/* Eski konum rayı (karşılaştır vb.): tahlil aralığıyla aynı dil */
-.ray { display: inline-block; position: relative; vertical-align: middle; width: 96px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--iz) 25%, var(--marka-bant) 25% 75%, var(--iz) 75%); }
-.ray i { position: absolute; top: -1px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--marka); box-shadow: 0 0 0 2px var(--zemin); }
-.ray u { position: absolute; top: -3px; width: 2px; height: 16px; margin-left: -1px; background: var(--murekkep-2); }
-
 /* ══════════════════════════════════════════════════════════ terim balonu */
 
 body.sozluk-hazir .terim { text-decoration: underline dotted var(--murekkep-3); text-underline-offset: 3px; cursor: help; }
 #terim-balon {
   position: fixed; z-index: 80; max-width: 320px; padding: 11px 13px;
-  background: #10204f; color: var(--zemin); border-radius: 10px;
+  background: var(--murekkep); color: var(--zemin); border-radius: 10px;
   font-size: 13px; line-height: 1.5; box-shadow: 0 10px 28px -8px rgb(14 20 17 / 0.4);
 }
 #terim-balon b { display: block; margin-bottom: 3px; }
@@ -596,7 +558,7 @@ body.sozluk-hazir .terim { text-decoration: underline dotted var(--murekkep-3); 
   border: 0; background: var(--dolgu); color: var(--murekkep-2); font-size: 14px; line-height: 1; cursor: pointer;
   display: grid; place-items: center;
 }
-.kars-kaldir:hover { color: var(--negatif); background: var(--negatif-zemin); }
+.kars-kaldir:hover { color: var(--murekkep); background: var(--bant); }
 .kars-kaldir svg { width: 13px; height: 13px; }
 .kars-kart .sirket-kod { font-size: 34px; }
 .kars-fiyat { margin-top: 12px; font: 800 26px/1 var(--yazi); font-stretch: 80%; }
@@ -692,7 +654,6 @@ details li { margin-bottom: 4px; }
   .reel-deger { font-size: 68px; }
   .reel-alan { grid-template-columns: 1fr; row-gap: 14px; padding: 16px; }
   .reel-cubuk-bas { grid-column: 1; }
-  .reel-deger.orta { font-size: 38px; }
   .kriter .detay { display: none; }
   .kriter { grid-template-columns: 18px 18px minmax(0, 1fr); }
   .kars-kart + .kars-kart { padding-left: 0; border-left: 0; border-top: 1px solid var(--cizgi-hafif); }

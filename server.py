@@ -612,7 +612,8 @@ class Handler(SimpleHTTPRequestHandler):
         # Statik dosyalar her açılışta yeniden doğrulansın: tarayıcı eski
         # style.css/app.js'i sezgisel önbellekten göstermesin. /api/ uçları
         # kendi başlığını zaten koyuyor.
-        if not self.path.startswith("/api/") and self.path != "/favicon.ico":
+        yol = urllib.parse.urlparse(self.path).path
+        if not yol.startswith("/api/") and yol != "/favicon.ico":
             self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 

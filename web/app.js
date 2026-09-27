@@ -310,7 +310,7 @@ function seritGrafik(seriler, genislik = 700) {
           <span class="text-muted">${kacir(aralikMetni)}</span>
         </div>
         <div class="grafik-kutu" style="max-width:${genislik}px">
-          <canvas id="${idler[sira]}"></canvas>
+          <canvas id="${idler[sira]}" role="img" aria-label="${kacir(`${seri.ad}, ${aralikMetni}`)}"></canvas>
         </div>
       </div>`;
   }).join("");
@@ -393,7 +393,7 @@ function sutunGrafik(noktalar, birim, genislik = 700) {
   });
 
   return `<div class="grafik-kutu grafik-kutu-buyuk" style="max-width:${genislik}px">
-      <canvas id="${id}"></canvas>
+      <canvas id="${id}" role="img" aria-label="Bugünün parasıyla gelir, ${noktalar.length} dönem"></canvas>
     </div>`;
 }
 
@@ -849,8 +849,8 @@ function reelVeUyarilar(veri) {
   const cubuklar = seri.length >= 2 ? `<div class="reel-grafik">
       <div class="reel-cubuk-bas">Gelir, bugünün parasıyla · <b>${kacir(para(seri[seri.length - 1][1], veri.saglik.currency || ""))}</b></div>
       <div class="reel-cubuklar" role="img" aria-label="Bugünün parasıyla yıllık gelir: ${
-        seri.map(([t, v]) => `${t.slice(0, 4)} ${kacir(para(v, veri.saglik.currency || ""))}`).join(", ")}">
-        ${seri.map(([t, v]) => `<div><i style="--h:${Math.max(4, (v / enCok) * 100).toFixed(1)}%"></i><span>${t.slice(0, 4)}</span></div>`).join("")}
+        seri.map(([t, v]) => `${kacir(t.slice(0, 4))} ${kacir(para(v, veri.saglik.currency || ""))}`).join(", ")}">
+        ${seri.map(([t, v]) => `<div><i style="--h:${Math.max(4, (v / enCok) * 100).toFixed(1)}%"></i><span>${kacir(t.slice(0, 4))}</span></div>`).join("")}
       </div></div>` : "";
   const gelir = d ? `<div class="reel-alan" data-yon="${yon}">
       <div class="reel-etiket">Gelir · ${terim(reelVar ? "reel" : "nominal", reelVar ? "reel" : "nominal")}</div>
@@ -1338,7 +1338,7 @@ function karsBuyumeKartlari(basarili) {
           <span class="alt-not">nominal</span></td>`;
       }
       return `<td class="deger">${isaretliYuzde(d.real)}
-        <span class="alt-not">nominal ${kacir(yuzde(d.nominal))}</span></td>`;
+        <span class="alt-not">nominal ${isaretliYuzde(d.nominal)}</span></td>`;
     });
     return `<tr><td class="metin">${kacir(baslik)}</td>${hucreler.join("")}</tr>`;
   };
@@ -1530,7 +1530,7 @@ function raporGovde(d, veri) {
         <div class="serit-kart">
           <div class="serit-etiket">Gelir · reel değişim</div>
           <div class="serit-deger buyuk">${isaretliYuzde(rr.real)}</div>
-          <div class="serit-alt">nominal ${kacir(yuzde(rr.nominal))} ·
+          <div class="serit-alt">nominal ${isaretliYuzde(rr.nominal)} ·
             enflasyon ${kacir(yuzde(rr.cpi_growth, false))}</div>
           <div class="serit-kaynak">${kacir(rr.label || "")} · ${kacir(rr.basis || "")}</div>
         </div>
@@ -1597,11 +1597,12 @@ EKRANLAR.kalite = async function (kap, sembol) {
     { ad: "Reel gelir büyümesi", renk: "var(--marka)", bicim: (v) => yuzde(v), noktalar: noktaCevir(d.real_revenue_growth) },
   ]);
 
-  const tabloSatir = (ad, noktalar, bicim) => {
+  // html=true: bicim zaten kaçışlı HTML döndürüyor (ör. isaretliYuzde).
+  const tabloSatir = (ad, noktalar, bicim, html = false) => {
     const g = (noktalar || []).filter((n) => n.value !== null && n.value !== undefined);
     if (!g.length) return "";
     return `<tr><td class="metin">${kacir(ad)}</td>
-      ${g.map((n) => `<td>${kacir(bicim(n.value))}</td>`).join("")}</tr>`;
+      ${g.map((n) => `<td>${html ? bicim(n.value) : kacir(bicim(n.value))}</td>`).join("")}</tr>`;
   };
 
   const donemler = (d.fscore || []).map((n) => n.date);
@@ -1630,8 +1631,8 @@ EKRANLAR.kalite = async function (kap, sembol) {
           <tbody>
             ${tabloSatir("F-Skoru", d.fscore, (v) => `${v}/9`)}
             ${tabloSatir("Net borç/FAVÖK", d.net_debt_ebitda, (v) => TR(v, 2))}
-            ${tabloSatir("Reel gelir büyümesi", d.real_revenue_growth, (v) => yuzde(v))}
-            ${tabloSatir("Reel net kâr büyümesi", d.real_net_income_growth, (v) => yuzde(v))}
+            ${tabloSatir("Reel gelir büyümesi", d.real_revenue_growth, isaretliYuzde, true)}
+            ${tabloSatir("Reel net kâr büyümesi", d.real_net_income_growth, isaretliYuzde, true)}
           </tbody>
         </table></div>
       </div></section>` : ""}`;
@@ -2042,9 +2043,9 @@ function portfoyOzet(veri) {
       <td>${kacir(yuzde(p.weight, false))}</td>
       <td>${isaretliYuzde(p.unrealized_pct)}</td>
     </tr>${p.fx_split && p.fx_split.available ? `<tr><td colspan="7" class="metin not"
-      style="padding-top:0">hisse getirisi ${kacir(yuzde(p.fx_split.share_return))} ·
-      kur getirisi ${kacir(yuzde(p.fx_split.fx_return))} ·
-      toplam ${kacir(yuzde(p.fx_split.total_return))}</td></tr>` : ""}`).join("");
+      style="padding-top:0">hisse getirisi ${isaretliYuzde(p.fx_split.share_return)} ·
+      kur getirisi ${isaretliYuzde(p.fx_split.fx_return)} ·
+      toplam ${isaretliYuzde(p.fx_split.total_return)}</td></tr>` : ""}`).join("");
 
   return `
     <section>
@@ -2059,7 +2060,7 @@ function portfoyOzet(veri) {
           ? `<div class="serit-kart">
               <div class="serit-etiket">Reel getiri</div>
               <div class="serit-deger buyuk">${isaretliYuzde(reel.real)}</div>
-              <div class="serit-alt">nominal ${kacir(yuzde(reel.nominal))} ·
+              <div class="serit-alt">nominal ${isaretliYuzde(reel.nominal)} ·
                 enflasyon ${kacir(yuzde(reel.cpi_growth, false))}</div>
               <div class="serit-kaynak">${kacir(reel.label || "")}</div>
             </div>`

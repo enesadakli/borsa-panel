@@ -154,7 +154,7 @@ Light ground and ink, one brand cobalt, and three meaning colours: up, down, att
 
 **Display Font:** Archivo variable, self-hosted in `web/fonts` (fallback Helvetica Neue, Arial)
 **Body Font:** Archivo at normal width
-**Source Font:** JetBrains Mono, only for rule ids and data-source lines
+**Source Font:** JetBrains Mono, only for rule ids, data-source lines and shell commands (code)
 
 **Character:** One grotesque stretched two ways: condensed and heavy for figures, open for reading.
 
