@@ -117,7 +117,7 @@ python tools/kalibrasyon.py bist us # bayrak eşiklerini evrenler arasında öl�
 python tools/anlati_denetim.py bist # anlatı cümlelerini gürültü/çelişki için tara
 python tools/llm_rapor.py SISE.IS   # LLM-okunur Markdown rapor
 python smoke.py                     # veri katmanı duman testi
-python tests/run.py                 # testler (146 test)
+python tests/run.py                 # testler (165 test)
 ```
 
 ### Terminalden kullanım
@@ -172,7 +172,7 @@ server.py           yerel HTTP sunucusu + JSON API (21 uç)
 web/
   index.html        tek sayfa iskelet
   app.js            altı ekran, arama, tarayıcı kural kurucu, grafikler
-  style.css         tema/token'lar (tek koyu tema)
+  style.css         tema/token'lar (açık tema; kurallar DESIGN.md'de)
   vendor/           Chart.js — projenin tek harici JS bağımlılığı, lokale
                     indirilmiş (bkz. Kurulum)
 tools/

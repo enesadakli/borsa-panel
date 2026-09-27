@@ -1,0 +1,311 @@
+{
+ "schemaVersion": 2,
+ "generatedAt": "2026-09-27T16:07:13+03:00",
+ "title": "Design System: Borsa Paneli",
+ "extensions": {
+  "colorMeta": {
+   "ground": {
+    "role": "neutral",
+    "displayName": "Report Paper",
+    "canonical": "#f7f8f7",
+    "tonalRamp": [
+     "#242924",
+     "#3e473e",
+     "#586558",
+     "#728372",
+     "#92a092",
+     "#b3bcb3",
+     "#d3d9d3",
+     "#f1f3f1"
+    ]
+   },
+   "ink": {
+    "role": "primary",
+    "displayName": "Ledger Ink",
+    "canonical": "#0e1411",
+    "tonalRamp": [
+     "#1f2d26",
+     "#374e42",
+     "#4e6f5e",
+     "#65907a",
+     "#87ab99",
+     "#abc4b8",
+     "#cfddd6",
+     "#f0f4f2"
+    ]
+   },
+   "positive": {
+    "role": "secondary",
+    "displayName": "Gain Green",
+    "canonical": "#087a42",
+    "tonalRamp": [
+     "#054827",
+     "#087c43",
+     "#0cb160",
+     "#0fe67c",
+     "#40f29b",
+     "#79f6b9",
+     "#b2fad7",
+     "#e7fdf2"
+    ]
+   },
+   "negative": {
+    "role": "secondary",
+    "displayName": "Loss Red",
+    "canonical": "#c62a22",
+    "tonalRamp": [
+     "#410e0b",
+     "#711813",
+     "#a1221c",
+     "#d12c24",
+     "#e15851",
+     "#ea8a85",
+     "#f3bcb9",
+     "#fbeae9"
+    ]
+   },
+   "ink-2": {
+    "role": "neutral",
+    "displayName": "Graphite",
+    "canonical": "#48524d",
+    "tonalRamp": [
+     "#242926",
+     "#3e4742",
+     "#58645e",
+     "#72827a",
+     "#92a099",
+     "#b3bcb8",
+     "#d4d9d6",
+     "#f1f3f2"
+    ]
+   },
+   "ink-3": {
+    "role": "neutral",
+    "displayName": "Pencil",
+    "canonical": "#66706a",
+    "tonalRamp": [
+     "#242826",
+     "#3f4542",
+     "#5a635d",
+     "#758079",
+     "#949e98",
+     "#b4bbb7",
+     "#d4d8d6",
+     "#f2f3f2"
+    ]
+   },
+   "rule": {
+    "role": "neutral",
+    "displayName": "Hairline",
+    "canonical": "#dce1de",
+    "tonalRamp": [
+     "#232926",
+     "#3d4741",
+     "#57665d",
+     "#718479",
+     "#91a197",
+     "#b2bdb7",
+     "#d3d9d6",
+     "#f1f3f2"
+    ]
+   },
+   "band": {
+    "role": "neutral",
+    "displayName": "Reference Band",
+    "canonical": "#dfe5e1",
+    "tonalRamp": [
+     "#222a25",
+     "#3b4940",
+     "#55685b",
+     "#6e8776",
+     "#8ea495",
+     "#b0bfb5",
+     "#d2dad5",
+     "#f1f4f2"
+    ]
+   },
+   "fill": {
+    "role": "neutral",
+    "displayName": "Field Fill",
+    "canonical": "#eceff0",
+    "tonalRamp": [
+     "#22282b",
+     "#3b464a",
+     "#536469",
+     "#6c8289",
+     "#8d9fa5",
+     "#afbcc0",
+     "#d1d9db",
+     "#f1f3f4"
+    ]
+   },
+   "brand": {
+    "role": "primary",
+    "displayName": "Deck Cobalt",
+    "canonical": "#1d4ed8",
+    "tonalRamp": [
+     "#0a1a4c",
+     "#102a78",
+     "#1638a3",
+     "#1d4ed8",
+     "#4f74e2",
+     "#8aa3ec",
+     "#c2d0f6",
+     "#eef2fd"
+    ]
+   },
+   "attention": {
+    "role": "tertiary",
+    "displayName": "Attention Amber",
+    "canonical": "#a86200",
+    "tonalRamp": [
+     "#3d2400",
+     "#5e3700",
+     "#824c00",
+     "#a86200",
+     "#d58a1f",
+     "#e8b35e",
+     "#f4d6a4",
+     "#fcf3e3"
+    ]
+   }
+  },
+  "typographyMeta": {
+   "display": {
+    "displayName": "Display",
+    "purpose": "Hero real-growth figure only."
+   },
+   "headline": {
+    "displayName": "Headline",
+    "purpose": "Symbol, price, secondary real figure, F-Skoru total."
+   },
+   "title": {
+    "displayName": "Title",
+    "purpose": "Section titles under the 2px ink rule."
+   },
+   "body": {
+    "displayName": "Body",
+    "purpose": "Sentences and table text, tabular figures."
+   },
+   "label": {
+    "displayName": "Label",
+    "purpose": "Column heads, captions, künye line."
+   },
+   "source": {
+    "displayName": "Source",
+    "purpose": "Rule ids and data-source lines only."
+   }
+  },
+  "shadows": [
+   {
+    "name": "float",
+    "value": "0 12px 32px -8px rgb(14 20 17 / 0.22), 0 0 0 1px rgb(14 20 17 / 0.06)",
+    "purpose": "Search suggestions and other floating layers only."
+   }
+  ],
+  "motion": [
+   {
+    "name": "ease-out-expo",
+    "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+    "purpose": "The one authored moment: company dots slide from median to percentile (0.8s, translate only)."
+   }
+  ],
+  "breakpoints": [
+   {
+    "name": "narrow",
+    "value": "760px"
+   },
+   {
+    "name": "stack",
+    "value": "900px"
+   }
+  ]
+ },
+ "components": [
+  {
+   "name": "Primary Button",
+   "kind": "button",
+   "refersTo": "button-primary",
+   "description": "Main action.",
+   "html": "<button class=\"ds-btn\">Taramayı başlat</button>",
+   "css": ".ds-btn{height:38px;padding:0 18px;border:0;border-radius:999px;background:#1d4ed8;color:#fff;font:600 14px Archivo,Helvetica Neue,Arial,sans-serif;cursor:pointer;transition:background .15s}.ds-btn:hover{background:#163da9}.ds-btn:focus-visible{outline:2px solid #1d4ed8;outline-offset:2px}"
+  },
+  {
+   "name": "Search Field",
+   "kind": "input",
+   "refersTo": "input-search",
+   "description": "Symbol search pill.",
+   "html": "<input class=\"ds-search\" placeholder=\"Sembol veya şirket ara…\">",
+   "css": ".ds-search{width:300px;height:38px;padding:0 16px;border:0;border-radius:999px;background:#eceff0;color:#0e1411;font:500 14px Archivo,Helvetica Neue,Arial,sans-serif}.ds-search::placeholder{color:#48524d}.ds-search:focus{outline:none;background:#fff;box-shadow:inset 0 0 0 1.5px #0e1411}"
+  },
+  {
+   "name": "Tabs",
+   "kind": "nav",
+   "description": "Screen tabs with ink underline.",
+   "html": "<nav class=\"ds-tabs\"><a class=\"on\">Skor Kartı</a><a>Tarayıcı</a><a>Piyasa</a></nav>",
+   "css": ".ds-tabs{display:flex;gap:26px;border-bottom:1px solid #dce1de;font:600 14px Archivo,Helvetica Neue,Arial,sans-serif}.ds-tabs a{padding:10px 0 12px;color:#66706a;cursor:pointer}.ds-tabs a:hover{color:#0e1411}.ds-tabs a.on{color:#0e1411;box-shadow:inset 0 -3px 0 #1d4ed8}"
+  },
+  {
+   "name": "Reference Band",
+   "kind": "custom",
+   "refersTo": "range-band",
+   "description": "Signature: sector percentile axis, middle-half band, median tick, company dot.",
+   "html": "<div class=\"ds-aralik\"><span class=\"b\"></span><span class=\"m\"></span><span class=\"d\" style=\"left:73%\"></span></div>",
+   "css": ".ds-aralik{position:relative;width:260px;height:22px}.ds-aralik:before{content:'';position:absolute;left:0;right:0;top:10px;height:2px;background:#edf0ee}.ds-aralik .b{position:absolute;left:25%;width:50%;top:6px;height:10px;border-radius:3px;background:#d3ddf8}.ds-aralik:hover .b{background:#bccdf4}.ds-aralik .m{position:absolute;left:50%;top:3px;width:2px;height:16px;margin-left:-1px;background:#163da9}.ds-aralik .d{position:absolute;top:5px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:#1d4ed8;box-shadow:0 0 0 2.5px #f7f8f7}"
+  },
+  {
+   "name": "Flag Row",
+   "kind": "custom",
+   "description": "Rule flag with severity bar.",
+   "html": "<div class=\"ds-flag\"><div class=\"s\"><i></i><span>Eşik</span></div><div><b>Sürekli ve belirgin reel daralma</b></div></div>",
+   "css": ".ds-flag{display:grid;grid-template-columns:72px 1fr;gap:18px;padding:13px 0;border-top:1px solid #dce1de;font:650 15px Archivo,Helvetica Neue,Arial,sans-serif;color:#0e1411}.ds-flag .s{display:grid;gap:7px;padding-top:5px}.ds-flag i{display:block;height:6px;border-radius:3px;background:#c62a22}.ds-flag span{font:700 10.5px Archivo,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#c62a22}"
+  }
+ ],
+ "narrative": {
+  "northStar": "Tahlil Sonucu (the lab result)",
+  "overview": "The panel reads a company the way a lab report reads a blood test: a value, the reference range it should be judged against, and a marker only when it falls outside. One light ground, ink and hairline rules, big condensed numerals. Emphasis comes from scale and weight, never colour; colour is reserved for the sign of a change.",
+  "keyCharacteristics": [
+   "One light ground (#f7f8f7), no cards, sections opened by a 2px ink rule.",
+   "Archivo condensed heavy for numbers, Archivo normal width for UI, tabular figures everywhere.",
+   "The reference band (sector 25–75th percentile) with median tick and company dot is the signature.",
+   "Signed values always carry a drawn ▲/▼ as well as colour.",
+   "Cobalt brand (#1d4ed8, shared with the demo deck) for logo, active tab, links, range band and dots.",
+   "The hero field takes the direction's colour: a red wash when real growth falls, green when it rises."
+  ],
+  "rules": [
+   {
+    "name": "The Meaning Colours Rule",
+    "body": "Cobalt is structure, green/red is direction, amber is attention. No other hue, and none of them as decoration.",
+    "section": "colors"
+   },
+   {
+    "name": "The Colour Is Law Rule",
+    "body": "Green and red appear only on a signed change or a crossed threshold, never as brand, decoration, or a good/bad verdict on a percentile.",
+    "section": "colors"
+   },
+   {
+    "name": "The Tabular Rule",
+    "body": "Every number uses tabular figures and Turkish formatting.",
+    "section": "typography"
+   },
+   {
+    "name": "The Ruled Page Rule",
+    "body": "No cards, no bordered boxes; a section is a rule, a title and content.",
+    "section": "elevation"
+   }
+  ],
+  "dos": [
+   "Do open every section with the 2px ink rule and a 17px title.",
+   "Do put the real figure first and large, nominal and inflation beside it and small.",
+   "Do draw icons and signs as SVG in one stroke weight.",
+   "Do keep the disclaimer and data-source line visible."
+  ],
+  "donts": [
+   "Don't reintroduce cards, glass, glows, gradients or indigo/emerald accents.",
+   "Don't colour a percentile, trend or out-of-band marker green/red; position is not a verdict.",
+   "Don't use Unicode glyphs or emoji as icons.",
+   "Don't load fonts or scripts from a CDN; the panel must run offline.",
+   "Don't strip the page back to black and white; the meaning colours are part of the identity."
+  ]
+ }
+}

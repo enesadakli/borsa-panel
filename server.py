@@ -72,7 +72,7 @@ VARSAYILAN_PORT = 8737
 
 FAVICON = (
     "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
-    "<rect width='32' height='32' rx='7' fill='#3b5bfd'/>"
+    "<rect width='32' height='32' rx='7' fill='#1d4ed8'/>"
     "<path d='M7 22 L13 15 L18 19 L25 9' stroke='white' stroke-width='2.6' "
     "fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>"
 )
@@ -607,6 +607,14 @@ class Handler(SimpleHTTPRequestHandler):
         if parsed.path == "/":
             self.path = "/index.html"
         super().do_GET()
+
+    def end_headers(self) -> None:
+        # Statik dosyalar her açılışta yeniden doğrulansın: tarayıcı eski
+        # style.css/app.js'i sezgisel önbellekten göstermesin. /api/ uçları
+        # kendi başlığını zaten koyuyor.
+        if not self.path.startswith("/api/") and self.path != "/favicon.ico":
+            self.send_header("Cache-Control", "no-cache")
+        super().end_headers()
 
     def _ikon(self) -> None:
         raw = FAVICON.encode("utf-8")

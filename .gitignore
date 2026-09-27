@@ -21,3 +21,8 @@ __pycache__/
 .vscode/
 .idea/
 Thumbs.db
+
+# Tasarım araçlarının geçici çıktıları (ekran görüntüleri, karar sayfası kayıtları)
+.impeccable/review/
+.impeccable/questions/
+.impeccable/decision-*.json
